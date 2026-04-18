@@ -436,6 +436,15 @@
       </div>
       <form id="channelForm">
         <input type="hidden" id="canalId">
+        <div class="field" style="display: flex; gap: 8px; align-items: flex-end;">
+          <div style="flex: 1;">
+            <label for="canalUrl">URL del canal (Opcional - Autocompletado)</label>
+            <input type="url" id="canalUrl" placeholder="https://youtube.com/... o Twitch">
+          </div>
+          <button type="button" class="btn-primary" id="fetchUrlBtn" style="padding: 10px 16px; border-radius: var(--radius-md);" title="Obtener info del canal">
+            <span class="material-symbols-rounded" style="font-size: 18px;">search</span>
+          </button>
+        </div>
         <div class="field">
           <label>Foto del canal</label>
           <div class="upload-area" id="photoUploadArea">

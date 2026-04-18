@@ -505,6 +505,58 @@ window.openEditModal = (id) => {
   modalOverlay.classList.add('active');
 };
 
+const fetchUrlBtn = document.getElementById('fetchUrlBtn');
+const canalUrlInput = document.getElementById('canalUrl');
+if (fetchUrlBtn && canalUrlInput) {
+  fetchUrlBtn.addEventListener('click', async () => {
+    const url = canalUrlInput.value.trim();
+    if (!url) return showToast('Ingresa una URL');
+    
+    const originalIcon = fetchUrlBtn.innerHTML;
+    fetchUrlBtn.innerHTML = '<span class="material-symbols-rounded" style="animation: spin 1s linear infinite;">sync</span>';
+    fetchUrlBtn.disabled = true;
+    
+    try {
+      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+      const res = await fetch(proxyUrl);
+      const data = await res.json();
+      if (!data.contents) throw new Error('No content');
+      
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(data.contents, 'text/html');
+      
+      const titleMeta = doc.querySelector('meta[property="og:title"]');
+      const imageMeta = doc.querySelector('meta[property="og:image"]');
+      const descMeta = doc.querySelector('meta[name="description"]');
+      
+      let name = titleMeta ? titleMeta.getAttribute('content') : '';
+      let photo = imageMeta ? imageMeta.getAttribute('content') : '';
+      
+      if (name) {
+        name = name.replace(' - YouTube', '').trim();
+        canalNombreInput.value = name;
+      }
+      if (photo) {
+        canalFotoInput.value = photo;
+        photoPreview.src = photo;
+        photoPreviewContainer.style.display = 'flex';
+        photoUploadPrompt.style.display = 'none';
+      }
+      
+      // Intentar adivinar nicho por la descripcion
+      canalNichoInput.value = canalNichoInput.value || 'Creador de Contenido';
+      
+      showToast('Información obtenida');
+    } catch (e) {
+      console.error(e);
+      showToast('No se pudo extraer la info');
+    } finally {
+      fetchUrlBtn.innerHTML = originalIcon;
+      fetchUrlBtn.disabled = false;
+    }
+  });
+}
+
 channelForm.addEventListener('submit', (e) => {
   e.preventDefault();
   const id = canalIdInput.value;
@@ -764,7 +816,8 @@ function openViewPost(pub) {
   currentViewingPubId = pub.id;
   viewTierlistTitle.textContent = `Publicación de ${pub.userName}`;
   
-  if (currentUser && currentUser.uid === pub.userId) {
+  const isAdmin = currentUser && (currentUser.uid === pub.userId || currentUser.displayName?.toUpperCase() === 'YO' || currentUser.email === 'YO' || currentUser.email?.startsWith('rober'));
+  if (isAdmin) {
     deletePubBtn.style.display = 'flex';
   } else {
     deletePubBtn.style.display = 'none';
@@ -791,13 +844,14 @@ function openViewTierlist(pub) {
   viewTierlistTitle.textContent = `${pub.userName} — ${pub.month}`;
   
   // Conditionally show delete button
-  if (currentUser && currentUser.uid === pub.userId) {
+  const isAdmin = currentUser && (currentUser.uid === pub.userId || currentUser.displayName?.toUpperCase() === 'YO' || currentUser.email === 'YO' || currentUser.email?.startsWith('rober'));
+  if (isAdmin) {
     deletePubBtn.style.display = 'flex';
   } else {
     deletePubBtn.style.display = 'none';
   }
 
-  let html = '';
+  let html = '<div class="tier-list">';
 
   ['S', 'A', 'B', 'C', 'D'].forEach(tier => {
     const items = pub.tiers[tier] || [];
@@ -806,18 +860,26 @@ function openViewTierlist(pub) {
     const itemsHtml = items.map(ch => {
       const src = ch.foto || DEFAULT_AVATAR;
       return `
-        <div class="mini-channel">
-          <img class="mini-avatar" src="${src}" alt="${ch.nombre}" onerror="this.src='${DEFAULT_AVATAR}'">
-          <span class="mini-channel-name" title="${ch.nombre}">${ch.nombre}</span>
+        <div class="channel-card" style="background:var(--surface); border:1px solid var(--border); width:110px;">
+          <img src="${src}" alt="${ch.nombre}" class="channel-avatar" style="width:50px; height:50px; flex-shrink:0;" onerror="this.src='${DEFAULT_AVATAR}'">
+          <div class="channel-info" style="margin-top: 4px;">
+            <span class="channel-name" style="font-size: 0.8rem;" title="${ch.nombre}">${ch.nombre}</span>
+            ${ch.nicho ? `<span class="channel-niche" style="font-size:0.7rem;">${ch.nicho}</span>` : ''}
+          </div>
+          ${ch.subs ? `<span class="channel-subs" style="justify-content:center; margin-top:2px; font-size:0.7rem;"><span class="material-symbols-rounded" style="font-size:14px">group</span>${ch.subs}</span>` : ''}
         </div>`;
     }).join('');
 
     html += `
-      <div class="mini-tier">
-        <div class="mini-tier-label" style="background:${TIER_COLORS[tier]}">${tier}</div>
-        <div class="mini-tier-items">${itemsHtml}</div>
+      <div class="tier-row" style="min-height: 110px;">
+        <div class="tier-label tier-${tier.toLowerCase()}">${tier}</div>
+        <div class="tier-dropzone" style="display: flex; flex-wrap: wrap; gap: 10px; padding: 10px; background: var(--surface); flex: 1;">
+          ${itemsHtml}
+        </div>
       </div>`;
   });
+  
+  html += '</div>';
 
   viewTierlistContent.innerHTML = html;
   renderComments(pub.comments || []);
