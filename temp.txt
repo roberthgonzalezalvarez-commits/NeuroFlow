@@ -1,0 +1,200 @@
+    showToast('Imagen descargada con éxito');
+  } catch (e) {
+    console.error('Error html2canvas', e);
+    showToast('Hubo un error al generar la imagen');
+  } finally {
+    downloadJpgBtn.innerHTML = originalIcon;
+    downloadJpgBtn.disabled = false;
+    exportContainer.innerHTML = ''; // Clean up
+  }
+});
+
+closeViewModalBtn.addEventListener('click', () => viewTierlistModal.classList.remove('active'));
+viewTierlistModal.addEventListener('click', (e) => {
+  if (e.target === viewTierlistModal) viewTierlistModal.classList.remove('active');
+});
+
+// ========================================
+// PROJECTS LOGIC
+// ========================================
+let allUsers = [];
+
+async function loadProjects() {
+  if (!currentUser) return;
+  projectRecipient.innerHTML = '<option value="" disabled selected>Cargando usuarios...</option>';
+  
+  if (firebaseReady) {
+    try {
+      const snap = await db.collection('users').get();
+      allUsers = snap.docs.map(d => ({ uid: d.id, ...d.data() })).filter(u => u.uid !== currentUser.uid);
+    } catch(e) { console.error('Error fetching users', e); }
+  } else {
+    // Mock users locally
+    allUsers = [
+      { uid: 'u1', displayName: 'Creador Ejemplo 1' },
+      { uid: 'u2', displayName: 'Creador Ejemplo 2' }
+    ];
+  }
+
+  projectRecipient.innerHTML = '<option value="" disabled selected>Selecciona un destinatario</option>';
+  allUsers.forEach(u => {
+    const opt = document.createElement('option');
+    opt.value = u.uid;
+    opt.textContent = u.displayName || u.email || u.uid;
+    projectRecipient.appendChild(opt);
+  });
+
+  loadProjectMessages();
+}
+
+async function loadProjectMessages() {
+  if (!currentUser) return;
+  projectsList.innerHTML = '<p style="text-align:center; padding: 20px;">Cargando mensajes...</p>';
+  
+  let msgs = [];
+  if (firebaseReady) {
+    try {
+      const sentSnap = await db.collection('project_messages').where('senderId', '==', currentUser.uid).get();
+      const recSnap = await db.collection('project_messages').where('recipientId', '==', currentUser.uid).get();
+      
+      msgs = [
+        ...sentSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+        ...recSnap.docs.map(d => ({ id: d.id, ...d.data() }))
+      ];
+      msgs.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+    } catch(e) {}
+  } else {
+    msgs = JSON.parse(localStorage.getItem('tierlist_projects') || '[]');
+    msgs = msgs.filter(m => m.senderId === currentUser.uid || m.recipientId === currentUser.uid);
+    msgs.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+  }
+
+  renderProjectMessages(msgs);
+}
+
+function renderProjectMessages(msgs) {
+  projectsList.innerHTML = '';
+  if (msgs.length === 0) {
+    projectsList.innerHTML = `
+      <div class="community-empty">
+        <span class="material-symbols-rounded">work_history</span>
+        <p>No hay mensajes recientes</p>
+      </div>`;
+    return;
+  }
+
+  msgs.forEach(m => {
+    const isSent = m.senderId === currentUser.uid;
+    const relatedUser = isSent ? m.recipientName : m.senderName;
+    const dateStr = new Date(m.createdAt).toLocaleDateString('es') + ' ' + new Date(m.createdAt).toLocaleTimeString('es', {hour: '2-digit', minute:'2-digit'});
+    
+    const div = document.createElement('div');
+    div.className = 'project-message';
+    
+    let attachHtml = '';
+    if (m.fileBase64) {
+      if (m.fileType && m.fileType.startsWith('image/')) {
+        attachHtml = `<a href="${m.fileBase64}" download="adjunto" class="project-message-attachment">
+          <span class="material-symbols-rounded">image</span> Ver imagen adjunta
+        </a>`;
+      } else {
+        attachHtml = `<a href="${m.fileBase64}" download="archivo" class="project-message-attachment">
+          <span class="material-symbols-rounded">insert_drive_file</span> Descargar archivo
+        </a>`;
+      }
+    }
+    
+    let linkHtml = '';
+    if (m.link) {
+      linkHtml = `<a href="${m.link}" target="_blank" class="project-message-link">${m.link}</a>`;
+    }
+
+    div.innerHTML = `
+      <div class="project-message-header">
+        <span>${isSent ? 'Enviado a:' : 'Recibido de:'} <strong>${relatedUser}</strong></span>
+        <span>${dateStr}</span>
+      </div>
+      <div class="project-message-body">${m.text}</div>
+      ${linkHtml}
+      ${attachHtml}
+    `;
+    projectsList.appendChild(div);
+  });
+}
+
+projectFileArea.addEventListener('click', (e) => {
+  if (e.target.closest('.remove-photo')) return;
+  projectFileInput.click();
+});
+
+projectFileInput.addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (file.size > 2 * 1024 * 1024) { showToast('Máximo 2MB'); return; }
+  
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    projectFileBase64.value = ev.target.result;
+    projectFileType.value = file.type;
+    projectFileName.textContent = file.name;
+    projectFilePrompt.style.display = 'none';
+    projectFilePreview.style.display = 'flex';
+  };
+  reader.readAsDataURL(file);
+});
+
+removeProjectFileBtn.addEventListener('click', (e) => {
+  e.preventDefault(); e.stopPropagation();
+  projectFileInput.value = '';
+  projectFileBase64.value = '';
+  projectFileType.value = '';
+  projectFilePreview.style.display = 'none';
+  projectFilePrompt.style.display = 'flex';
+});
+
+projectMessageForm.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (!currentUser) return;
+  
+  const uid = projectRecipient.value;
+  const name = projectRecipient.options[projectRecipient.selectedIndex].text;
+  
+  const msg = {
+    senderId: currentUser.uid,
+    senderName: currentUser.displayName || currentUser.email,
+    recipientId: uid,
+    recipientName: name,
+    text: projectText.value.trim(),
+    link: projectLink.value.trim(),
+    fileBase64: projectFileBase64.value,
+    fileType: projectFileType.value,
+    createdAt: new Date().toISOString()
+  };
+
+  const originalIcon = projectMessageForm.querySelector('button[type="submit"]').innerHTML;
+  projectMessageForm.querySelector('button[type="submit"]').textContent = 'Enviando...';
+
+  if (firebaseReady) {
+    try {
+      await db.collection('project_messages').add(msg);
+      showToast('Mensaje enviado');
+    } catch(e) { showToast('Error al enviar'); }
+  } else {
+    let hw = JSON.parse(localStorage.getItem('tierlist_projects') || '[]');
+    msg.id = 'msg_' + Date.now();
+    hw.push(msg);
+    localStorage.setItem('tierlist_projects', JSON.stringify(hw));
+    showToast('Mensaje enviado (Local)');
+  }
+
+  projectMessageForm.reset();
+  projectFileBase64.value = '';
+  projectFilePreview.style.display = 'none';
+  projectFilePrompt.style.display = 'flex';
+  projectMessageForm.querySelector('button[type="submit"]').innerHTML = originalIcon;
+  loadProjectMessages();
+});
+
+// ========================================
+// COMMUNITY POST LOGIC
+// ========================================
