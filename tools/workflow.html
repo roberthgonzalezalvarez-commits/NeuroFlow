@@ -1,0 +1,1996 @@
+<!DOCTYPE html>
+<html lang="es" >
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimalist Flow Builder</title>
+  
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            app: {
+              bg: '#f8f9fa',
+              panel: '#ffffff',
+              border: '#dadce0',
+              text: '#202124',
+              muted: '#5f6368'
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+  
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap">
+  <link rel="stylesheet" href="https://esm.sh/@xyflow/react@12.3.0/dist/style.css" />
+  
+  <style>
+    body {
+      background-color: #e5e7eb;
+      color: #202124;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      font-family: 'Inter', sans-serif;
+    }
+    
+    /* React flow overrides to fit dark theme */
+    .react-flow__bg { background-color: #e5e7eb; }
+    .react-flow__panel { background-color: transparent; }
+    
+    /* Edge Flowing Animation */
+    @keyframes dashdraw {
+      from { stroke-dashoffset: 1000; }
+      to { stroke-dashoffset: 0; }
+    }
+    
+    .react-flow__edge-path {
+      stroke: #3f3f46;
+      stroke-width: 2;
+    }
+    
+    .edge-running .react-flow__edge-path {
+      stroke: #6366f1 !important;
+      stroke-width: 2.5 !important;
+      stroke-dasharray: 8;
+      animation: dashdraw 10s linear infinite !important;
+    }
+
+    /* Glass Panels */
+    .glass {
+      background: #ffffff;
+      
+      -webkit-
+      border: 1px solid #dadce0; box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    
+    /* Sidebar Scrollbar */
+    .scrollbar-hide::-webkit-scrollbar {
+        display: none;
+    }
+    .scrollbar-hide {
+        -ms-overflow-style: none;  /* IE and Edge */
+        scrollbar-width: none;  /* Firefox */
+    }
+  </style>
+
+  <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@18.3.1",
+        "react/jsx-runtime": "https://esm.sh/react@18.3.1/jsx-runtime",
+        "react-dom": "https://esm.sh/react-dom@18.3.1",
+        "react-dom/client": "https://esm.sh/react-dom@18.3.1/client",
+        "@xyflow/react": "https://esm.sh/@xyflow/react@12.3.0?external=react,react-dom",
+        "lucide-react": "https://esm.sh/lucide-react@0.400.0?external=react",
+        "clsx": "https://esm.sh/clsx@2.1.1",
+        "tailwind-merge": "https://esm.sh/tailwind-merge@2.4.0"
+      }
+    }
+  </script>
+  
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+</head>
+<body class="antialiased selection:bg-indigo-500/30">
+  <div id="error-log" style="position:fixed; z-index:9999; top:0; left:0; background:#990000; color:white; padding:20px; font-family:monospace; display:none; width:100%; white-space:pre-wrap;"></div>
+  <script>
+    window.onerror = function(msg, url, line, col, error) {
+      document.getElementById('error-log').style.display = 'block';
+      document.getElementById('error-log').innerText += "\nError: " + msg;
+    };
+    window.addEventListener('unhandledrejection', function(event) {
+      document.getElementById('error-log').style.display = 'block';
+      document.getElementById('error-log').innerText += "\nPromise Rejection: " + (event.reason ? event.reason.stack || event.reason : event);
+    });
+    const origError = console.error;
+    console.error = function(...args) {
+      document.getElementById('error-log').style.display = 'block';
+      document.getElementById('error-log').innerText += "\nConsole Error: " + args.join(' ');
+      origError.apply(console, args);
+    };
+  </script>
+  <div id="root" class="w-full h-screen"></div>
+  
+  <script type="text/babel" data-type="module" data-presets="react">
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { createRoot } from 'react-dom/client';
+import { 
+  ReactFlow, 
+  Background, 
+  Controls,
+  applyNodeChanges, 
+  applyEdgeChanges, 
+  addEdge,
+  Handle,
+  Position,
+  useReactFlow,
+  ReactFlowProvider
+} from '@xyflow/react';
+import { 
+  Youtube, FileText, Brain, Camera, Mic, 
+  Play, Save, RotateCcw, X, Settings2, Sparkles, Image as ImageIcon, Volume2, Link as LinkIcon, Key, Search, Plus, List, Trash2, Download, Clock, AlertCircle, ExternalLink, RefreshCw, Terminal
+} from 'lucide-react';
+import { clsx } from 'clsx';
+import { twMerge } from 'tailwind-merge';
+
+function cn(...inputs) {
+  return twMerge(clsx(inputs));
+}
+
+// --- Icons Map ---
+const Icons = {
+  Youtube,
+  FileText,
+  Brain,
+  Camera,
+  Mic,
+  Search
+};
+
+const AI33_VOICES = [
+  { id: 'es-1', name: 'Alvaro', lang: 'Español', gender: 'Masculino', desc: 'Narración profunda y clara' },
+  { id: 'es-2', name: 'Lucía', lang: 'Español', gender: 'Femenino', desc: 'Voz dulce para relatos' },
+  { id: 'en-1', name: 'James', lang: 'English', gender: 'Masculino', desc: 'Professional documentary style' },
+  { id: 'en-2', name: 'Sophie', lang: 'English', gender: 'Femenino', desc: 'Calm and engaging' },
+  { id: 'es-3', name: 'Mateo', lang: 'Español', gender: 'Masculino', desc: 'Enérgico para anuncios' },
+  { id: 'es-4', name: 'Valentina', lang: 'Español', gender: 'Femenino', desc: 'Relájate con su tono suave' },
+  { id: 'it-1', name: 'Giovanni', lang: 'Italiano', gender: 'Masculino', desc: 'Classico e autorevole' },
+  { id: 'fr-1', name: 'Amélie', lang: 'Français', gender: 'Femenino', desc: 'Douce et expressive' },
+];
+
+// --- YOUTUBE SCRAPER UTILITY ---
+async function fetchYoutubeTranscript(url, apiKeys = {}, onStatusChange = null) {
+  const updateStatus = (msg) => {
+    if (onStatusChange) onStatusChange(msg);
+    console.log(`[Scraper Status] ${msg}`);
+  };
+
+  const videoIdMatch = url.match(/(?:v=|\/embed\/|\/1\/|\/v\/|https:\/\/youtu\.be\/|\/v\/|e\/|watch\?v=|\?v=)([^"&?\/\s]{11})/);
+  if (!videoIdMatch) throw new Error("URL de YouTube no válida. Asegúrate de que sea un enlace correcto.");
+  const videoId = videoIdMatch[1];
+
+  const INVIDIOUS_INSTANCES = [
+    'https://yewtu.be',
+    'https://inv.vern.cc',
+    'https://invidious.snopyta.org',
+    'https://invidious.kavin.rocks'
+  ];
+
+  // Helper para proxies
+  const fetchWithProxy = async (targetUrl) => {
+    const proxies = [
+      (u) => `https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,
+      (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`
+    ];
+    for (const p of proxies) {
+      try {
+        const res = await fetch(p(targetUrl), { signal: AbortSignal.timeout(8000) });
+        if (!res.ok) continue;
+        const data = await res.json();
+        return data.contents || data;
+      } catch (e) { console.warn("Proxy fallido, intentando otro..."); }
+    }
+    throw new Error("No se pudo conectar con YouTube a través de los proxies de seguridad.");
+  };
+
+  // 1. Prioridad: TranscriptAPI.com (Servicio Profesional - OpenAPI Compliant)
+  if (apiKeys.transcriptApi) {
+    let retries = 0;
+    while (retries < 2) {
+      try {
+        updateStatus("Consultando TranscriptAPI.com (Alta Prioridad)...");
+        const response = await fetch(`https://transcriptapi.com/api/v2/youtube/transcript?video_url=${encodeURIComponent(url)}&format=json&include_timestamp=false`, {
+          headers: { 'Authorization': `Bearer ${apiKeys.transcriptApi}` },
+          signal: AbortSignal.timeout(15000)
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          // Según el spec, si format=json y include_timestamp=false, transcript es un array de {text}
+          if (data.transcript && Array.isArray(data.transcript)) {
+            updateStatus("¡Éxito Premium! Procesando transcripción...");
+            return data.transcript.map(s => s.text).join(' ');
+          }
+          // Si por alguna razón devuelve un string (format=text)
+          if (typeof data.transcript === 'string') return data.transcript;
+        }
+
+        // Manejo de errores según Spec
+        if (response.status === 401) throw new Error("API Key de TranscriptAPI inválida. Revisa tu configuración.");
+        if (response.status === 402) throw new Error("Créditos agotados en TranscriptAPI.com. Por favor, recarga tu cuenta.");
+        if (response.status === 404) throw new Error("Video sin subtítulos disponibles (Reportado por TranscriptAPI).");
+        if (response.status === 429) {
+          const waitTime = response.headers.get('Retry-After') || 5;
+          updateStatus(`Límite de velocidad alcanzado. Esperando ${waitTime}s...`);
+          await new Promise(r => setTimeout(r, waitTime * 1000));
+          retries++; continue;
+        }
+        if (response.status === 408 || response.status === 503) {
+          updateStatus(`Error temporal (${response.status}). Reintentando...`);
+          await new Promise(r => setTimeout(r, 2000));
+          retries++; continue;
+        }
+
+        throw new Error(`Error en TranscriptAPI (Status ${response.status})`);
+
+      } catch (e) {
+        // Si hay una clave configurada, reportamos el error REAL en lugar de saltar al modo gratuito
+        console.error("Fallo crítico en TranscriptAPI:", e);
+        throw e; 
+      }
+    }
+  }
+
+  // 1.5. Prioridad: API Oficial (si existe)
+  if (apiKeys.youtube) {
+    // Reservado para implementación futura
+  }
+
+  // 2. Prioridad: Invidious Instances (Rápido y Seguro)
+  for (let i = 0; i < INVIDIOUS_INSTANCES.length; i++) {
+    const inst = INVIDIOUS_INSTANCES[i];
+    try {
+      updateStatus(`Consultando Fuente de Seguridad ${i+1}/${INVIDIOUS_INSTANCES.length}...`);
+      const resp = await fetch(`${inst}/api/v1/captions/${videoId}`, { signal: AbortSignal.timeout(5000) });
+      if (resp.ok) {
+        const data = await resp.json();
+        const tracks = data.captions || [];
+        if (tracks.length > 0) {
+          const track = tracks.find(t => t.languageCode === 'es') || tracks.find(t => t.languageCode === 'en') || tracks[0];
+          updateStatus("¡Conectado! Descargando texto...");
+          const capResp = await fetch(`${inst}${track.url}`);
+          if (capResp.ok) return await capResp.text();
+        }
+      }
+    } catch (e) {}
+  }
+
+  // 3. Fallback: Scraping Directo con Proxies (Más lento pero resiliente)
+  updateStatus("Fuentes rápidas ocupadas. Activando Escudo de Proxy...");
+  try {
+    const html = await fetchWithProxy(`https://www.youtube.com/watch?v=${videoId}`);
+    updateStatus("Analizando respuesta de YouTube...");
+    
+    let captionTracks = null;
+    const tracksMatch = html.match(/"captionTracks":\s*(\[.+?\])/);
+    if (tracksMatch) captionTracks = JSON.parse(tracksMatch[1]);
+
+    if (captionTracks && captionTracks.length > 0) {
+      updateStatus("Extrayendo texto mediante proxy seguro...");
+      const track = captionTracks.find(t => t.languageCode?.startsWith('es')) || 
+                    captionTracks.find(t => t.languageCode?.startsWith('en')) || 
+                    captionTracks[0];
+      const xmlData = await fetchWithProxy(track.baseUrl);
+      
+      // Limpiar XML a texto plano
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlData, "text/xml");
+      const textNodes = xmlDoc.getElementsByTagName("text");
+      let fullText = "";
+      for (let i = 0; i < textNodes.length; i++) {
+        fullText += textNodes[i].textContent + " ";
+      }
+      return fullText.trim().replace(/&amp;#39;/g, "'").replace(/&quot;/g, '"');
+    }
+  } catch (e) {
+    console.error("Error en fase de proxy:", e);
+  }
+
+  throw new Error("No se pudo obtener el texto automáticamente. YouTube es restrictivo con este video. Por favor, pégalo manualmente en el nodo.");
+}
+
+async function fetchGeminiContent(prompt, apiKey, onLog = null) {
+  const log = (type, msg, det) => onLog && onLog(type, msg, det);
+  
+  const executeCall = async (modelName) => {
+    const url = `https://generativelanguage.googleapis.com/v1/models/${modelName}:generateContent?key=${apiKey}`;
+    log('info', `Conectando con Gemini (${modelName})...`);
+    
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] }),
+    });
+    
+    if (!response.ok) {
+       const errData = await response.json().catch(()=>({}));
+       const errMsg = errData.error?.message || `HTTP ${response.status} ${response.statusText}`;
+       throw new Error(errMsg);
+    }
+
+    const data = await response.json();
+    if (data.candidates && data.candidates.length > 0) {
+      log('success', `¡Conectado a ${modelName}!`);
+      return data.candidates[0].content.parts[0].text;
+    }
+    throw new Error("Respuesta vacía de Gemini");
+  };
+
+  try {
+    return await executeCall('gemini-1.5-flash');
+  } catch (e) {
+    if (e.message.includes('not found') || e.message.includes('is not supported')) {
+      log('warning', `Buscando modelo alternativo disponible en v1...`);
+      try {
+        const listRes = await fetch(`https://generativelanguage.googleapis.com/v1/models?key=${apiKey}`);
+        if (listRes.ok) {
+          const listData = await listRes.json();
+          const validModels = listData.models.filter(m => 
+            m.name.includes('gemini') && 
+            m.supportedGenerationMethods?.includes('generateContent')
+          );
+          if (validModels.length > 0) {
+            const fallbackModel = validModels[0].name.replace('models/', '');
+            log('info', `Modelo encontrado: ${fallbackModel}. Reintentando...`);
+            return await executeCall(fallbackModel);
+          }
+        }
+      } catch (errFallback) {
+        // Ignorar
+      }
+    }
+
+    log('warning', `Error exacto de Gemini: ${e.message}`);
+    let translatedError = e.message;
+    if (translatedError.includes('User location is not supported')) {
+      translatedError = "Google Gemini bloquea las peticiones desde tu país/región. Necesitas una VPN o usar otro proveedor.";
+    } else if (translatedError.includes('API key not valid')) {
+      translatedError = "La API Key de Gemini no es válida o está incorrecta.";
+    }
+    
+    throw new Error(translatedError);
+  }
+}
+
+async function fetchChatGPTContent(prompt, apiKey, onLog = null) {
+  const log = (type, msg, det) => onLog && onLog(type, msg, det);
+  const modelsToTry = ['gpt-4o-mini', 'gpt-3.5-turbo'];
+
+  let lastError = null;
+
+  for (const modelName of modelsToTry) {
+    try {
+      log('info', `Conectando a ChatGPT (${modelName})...`);
+
+      const response = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${apiKey}`
+        },
+        body: JSON.stringify({
+          model: modelName,
+          messages: [{ role: 'user', content: prompt }],
+          temperature: 0.8,
+          max_tokens: 4096
+        }),
+        signal: AbortSignal.timeout(30000)
+      });
+
+      if (response.status === 401) {
+        throw new Error('API Key de OpenAI/ChatGPT inválida. Revísala en tu cuenta de OpenAI.');
+      }
+      if (response.status === 429) {
+        log('warning', `Rate limit en ${modelName}, reintentando...`);
+        await new Promise(r => setTimeout(r, 3000));
+        continue;
+      }
+      if (response.status === 402 || response.status === 403) {
+        throw new Error('Sin créditos en OpenAI. Recarga tu cuenta en platform.openai.com.');
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.choices && data.choices.length > 0) {
+          log('success', `¡Conectado a ChatGPT (${modelName})!`);
+          return data.choices[0].message.content;
+        }
+      }
+
+      // If model not found, try next
+      if (response.status === 404) {
+        log('warning', `Modelo ${modelName} no disponible, probando siguiente...`);
+        continue;
+      }
+
+    } catch (e) {
+      if (e.message.includes('API Key') || e.message.includes('créditos')) throw e;
+      lastError = e.message;
+      log('warning', `Error con ${modelName}: ${e.message}`);
+    }
+  }
+
+  throw new Error(`No se pudo conectar con ChatGPT. Error: ${lastError}`);
+}
+
+async function callAi33TTS(text, apiKey, options = {}, onLog = null) {
+  const log = (type, msg, det) => onLog && onLog(type, msg, det);
+  log('info', 'Iniciando Síntesis Asíncrona (AI33 API)...');
+  
+  try {
+    // PASO 1: Petición de Creación
+    log('info', 'Enviando petición a la API de AI33...');
+    // Si la interfaz envía otra voz, podría cambiarse aquí, pero según instrucciones usamos un endpoint específico
+    // Podemos permitir mapear el ID si estuviera disponible, o usar el que nos dieron:
+    const voiceId = "15bJsujCI3tcDWeoZsQP"; 
+    const createRes = await fetch(`https://api.ai33.pro/v1/text-to-speech/${voiceId}?output_format=mp3_44100_128`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'xi-api-key': apiKey
+      },
+      body: JSON.stringify({
+        text: text,
+        model_id: "eleven_multilingual_v2",
+        with_transcript: false
+      })
+    });
+
+    if (!createRes.ok) {
+      const err = await createRes.json().catch(() => ({}));
+      throw new Error(`Error Creación AI33 (${createRes.status}): ${err.message || createRes.statusText}`);
+    }
+
+    const createData = await createRes.json();
+    const taskId = createData.task_id;
+    if (!taskId) throw new Error("No se recibió un task_id de AI33");
+
+    // PASO 2: Lógica de Verificación (Polling)
+    log('info', `Tarea creada (ID: ${taskId}). Consultando estado...`);
+    let audioUrl = null;
+    
+    while (true) {
+      // Frecuencia: 3-5 segundos
+      await new Promise(r => setTimeout(r, 4000));
+      
+      const pollRes = await fetch(`https://api.ai33.pro/v1/task/${taskId}`, {
+        method: 'GET',
+        headers: {
+          'xi-api-key': apiKey
+        }
+      });
+
+      if (!pollRes.ok) {
+        log('warning', `Verificación devolvió error HTTP ${pollRes.status}, reintentando...`);
+        continue;
+      }
+
+      const pollData = await pollRes.json();
+      
+      if (pollData.status === 'done') {
+        audioUrl = pollData.metadata?.audio_url;
+        if (!audioUrl) throw new Error("El estado es 'done' pero no se encontró metadata.audio_url");
+        break; // Salir del bucle
+      } else if (pollData.status === 'error') {
+        throw new Error(`Error en la tarea asíncrona: ${pollData.error_message}`);
+      } else {
+        log('info', `Estado de la tarea: ${pollData.status || 'processing'} - Esperando...`);
+      }
+    }
+
+    // PASO 3: Entrega del Resultado Final
+    log('success', '¡Audio generado con éxito!');
+    return {
+      url: audioUrl,
+      duration: 'Generado API',
+      id: taskId
+    };
+  } catch (e) {
+    log('error', 'Error en síntesis AI33', e.message);
+    throw e;
+  }
+}
+
+async function callOllama(prompt, onLog = null) {
+  const log = (type, msg, det) => onLog && onLog(type, msg, det);
+  log('info', 'Conectando con Ollama Local...');
+  try {
+    const response = await fetch('http://localhost:11434/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'llama3',
+        prompt: prompt,
+        stream: false,
+        options: {
+          num_ctx: 16384,   // Aumentamos la ventana de contexto a 16k tokens
+          num_predict: 8192 // Permitimos que genere hasta ~8000 tokens (~32k caracteres)
+        }
+      }),
+    });
+    if (!response.ok) throw new Error('Ollama no responde. Verificando OLLAMA_ORIGINS="*"');
+    const data = await response.json();
+    log('success', '¡Respuesta recibida de Ollama!');
+    return data.response;
+  } catch (err) {
+    log('error', 'Error en Ollama', err.message);
+    throw err;
+  }
+}
+
+// --- MOCK DATA FOR THE APP ---
+const MOCK_TEXTS = {
+  transcript: "La antigua civilización de Sumeria, florecida entre los ríos Tigris y Éufrates, no solo inventó la escritura cuneiforme, sino que plantó las bases matemáticas y astrológicas que la humanidad sigue utilizando hasta hoy. Fragmentos de tablillas revelan cómo sus ciudades, protegidas por muros masivos y zigurats impresionantes, funcionaban como metrópolis organizadas. Pero un misterio envuelve su abrupto declive...",
+  script: `[Tono: Inmersivo y Relajante - Volumen de voz nivelado]
+(Música de fondo: Vientos suaves y ecos antiguos)
+
+Voz en off: Cierra los ojos e imagina el nacimiento de todo lo que conocemos. Entre dos cauces legendarios, el Tigris y el Éufrates, despertó la primera chispa del conocimiento organizado: Sumeria. 
+
+(Pausa dramática de 2 segundos)
+
+Voz en off: Aquellos que tallaron la arcilla y trazaron las órbitas de las estrellas... construyeron muros que rozaban el cielo. Sus zigurats fueron los primeros escalones hacia los dioses. 
+
+(La música se vuelve tenue, entra un sonido de viento)
+
+Voz en off: Pero, al igual que una vela en medio de una tormenta de arena... todo ese resplandor, eventualmente, fue devorado por el misterio de las arenas del tiempo.`,
+  prompts: `1. (0:00-0:05): Cinematic panning shot of an ancient Sumerian city at twilight golden hour, massive Ziggurat towering in the center, rivers Tigris and Euphrates softly glistening in the far background. Highly detailed, photorealistic, 8k resolution, atmospheric lighting, moody historical documentary style. Aspect Ratio: 16:9.
+
+2. (0:05-0:10): Extreme close-up shot of a wise ancient scribe's weathered hands carving cuneiform symbols onto a clay tablet with a reed stylus, warmly lit by flickering firelight. Hyperrealistic, shallow depth of field, dust motes dancing in the light. Aspect Ratio 16:9.
+
+3. (0:10-0:15): Wide angle shot of a massive desert sandstorm rolling over the ruins of an ancient Mesopotamian temple fading into darkness, evocative and mysterious atmosphere. Cinematic lighting, dramatic shadows, mysterious mood. Aspect Ratio 16:9.`
+};
+
+
+// --- CUSTOM NODE COMPONENT ---
+function CustomNode({ id, data, selected, onRunFlow, onDeleteNode }) {
+  const IconComponent = Icons[data.icon] || Settings2;
+  
+  const colorStyles = {
+    red: 'bg-white border-t-4 border-t-red-500 border-gray-200 shadow-md',
+    green: 'bg-white border-t-4 border-t-emerald-500 border-gray-200 shadow-md',
+    yellow: 'bg-white border-t-4 border-t-amber-500 border-gray-200 shadow-md',
+    blue: 'bg-white border-t-4 border-t-blue-500 border-gray-200 shadow-md',
+    purple: 'bg-white border-t-4 border-t-purple-500 border-gray-200 shadow-md',
+  };
+  
+  const iconBgStyles = {
+    red: 'bg-red-50 text-red-600',
+    green: 'bg-emerald-50 text-emerald-600',
+    yellow: 'bg-amber-50 text-amber-600',
+    blue: 'bg-blue-50 text-blue-600',
+    purple: 'bg-purple-50 text-purple-600',
+  };
+
+  const currentStyle = colorStyles[data.color] || colorStyles.blue;
+  const iconStyle = iconBgStyles[data.color] || iconBgStyles.blue;
+
+  return (
+    <div className={cn(
+      "w-[260px] rounded-2xl border transition-all duration-200 overflow-hidden",
+      currentStyle,
+      selected && "ring-2 ring-indigo-500/50 shadow-xl scale-[1.02]"
+    )}>
+      {data.type !== 'trigger' && (
+        <Handle 
+          type="target" 
+          position={Position.Left} 
+          className="w-3 h-3 bg-white border-2 border-gray-400 translate-x-[-1px] rounded-full"
+        />
+      )}
+      
+      <div className="p-4 flex flex-col gap-3 relative">
+        {/* Delete button - visible only when selected */}
+        {selected && (
+          <button 
+            onClick={(e) => { e.stopPropagation(); onDeleteNode && onDeleteNode(id); }}
+            className="absolute -top-1 -right-1 w-7 h-7 bg-red-500 hover:bg-red-600 text-white rounded-full flex items-center justify-center shadow-lg shadow-red-500/30 transition-all hover:scale-110 z-10 animate-in zoom-in-50 duration-150"
+            title="Eliminar nodo"
+          >
+            <X size={14} strokeWidth={3} />
+          </button>
+        )}
+        <div className="flex items-center gap-3">
+          <div className={cn("p-2.5 rounded-xl", iconStyle)}>
+            <IconComponent size={20} strokeWidth={2.5} />
+          </div>
+          <div className="flex flex-col">
+            <span className="text-xs font-semibold uppercase tracking-wider text-gray-500">
+              {data.category || "Node"}
+            </span>
+            <span className="font-bold text-[15px] text-gray-900">
+              {data.label}
+            </span>
+          </div>
+        </div>
+        
+        {/* Indicador de estado o subtítulo */}
+        {data.status === 'loading' ? (
+          <div className="bg-indigo-500/20 rounded-lg p-2 flex items-center mt-1 border border-indigo-500/20">
+             <div className="w-2 h-2 rounded-full bg-indigo-500 mr-2 animate-spin border-t-transparent border-2"></div>
+             <span className="text-[10px] text-indigo-600 font-medium">{data.statusMsg || 'Procesando...'}</span>
+          </div>
+        ) : data.value ? (
+          <div className="bg-gray-100 rounded-lg p-2 flex items-center justify-between mt-1">
+             <span className="text-xs text-app-muted truncate w-full">
+               {data.valuePreview || (data.value && data.value.substring(0, 25) + '...')}
+             </span>
+             <div className="w-2 h-2 rounded-full bg-emerald-500 ml-2 animate-pulse"></div>
+          </div>
+        ) : data.status === 'error' ? (
+          <div className="bg-red-500/10 rounded-lg p-2 flex flex-col mt-1 border border-red-500/20 animate-in fade-in duration-300">
+             <div className="flex items-center gap-2 mb-1 text-red-600">
+               <AlertCircle size={14} />
+               <span className="text-[10px] font-bold uppercase tracking-wider">Error de Proceso</span>
+             </div>
+             <p className="text-[10px] text-red-500/80 leading-tight">
+               {data.statusMsg || 'Ocurrió un error inesperado al procesar este nodo.'}
+             </p>
+             <div className="flex items-center gap-3 mt-2">
+               <button 
+                 onClick={(e) => { e.stopPropagation(); onRunFlow(node.id); }}
+                 className="text-[9px] font-bold text-red-600 hover:text-red-300 underline underline-offset-2 transition-colors uppercase tracking-tight"
+               >
+                 Reintentar Paso
+               </button>
+               {data.type === 'script' && (
+                 <button 
+                   onClick={(e) => { 
+                     e.stopPropagation(); 
+                     onRunFlow(null); // Detener flujo
+                     onRunFlow(node.id, true); // Especial: Forzar mock
+                   }}
+                   className="text-[9px] font-bold text-app-muted hover:text-black underline underline-offset-2 transition-colors uppercase tracking-tight"
+                 >
+                   Usar Guion de Prueba (Demo)
+                 </button>
+               )}
+             </div>
+          </div>
+        ) : (
+          <div className="bg-gray-50 rounded-lg p-2 flex items-center mt-1 border border-gray-200">
+             <span className="text-xs text-app-muted/60 italic">Esperando datos...</span>
+          </div>
+        )}
+      </div>
+
+      <Handle 
+        type="source" 
+        position={Position.Right} 
+        className="w-3 h-3 bg-app-border border-2 border-app-panel translate-x-[1px] rounded-full"
+      />
+
+      {/* Status Bar for Execution */}
+      {data.status && data.status !== 'idle' && (
+        <div className={cn(
+          "absolute bottom-0 left-0 h-1 transition-all duration-500",
+          data.status === 'loading' ? "w-1/2 bg-indigo-500 animate-pulse" : "w-full bg-emerald-500"
+        )} />
+      )}
+    </div>
+  );
+}
+
+// --- INITIAL STATE ---
+const initialNodes = [
+  { id: '1', type: 'custom', position: { x: 50, y: 300 }, data: { label: 'Input URL', category: 'Trigger', type: 'trigger', color: 'red', icon: 'Youtube', value: 'https://youtube.com/watch?v=ScMzIvxBSi4', valuePreview: 'https://youtube.com...' } },
+  { id: '2', type: 'custom', position: { x: 380, y: 300 }, data: { label: 'Extracción Texto', category: 'Procesamiento', type: 'extract', color: 'green', icon: 'FileText', value: '', valuePreview: '' } },
+  { id: '3', type: 'custom', position: { x: 710, y: 300 }, data: { label: 'Guion IA', category: 'Generación', type: 'script', color: 'yellow', icon: 'Brain', value: '', params: { tone: 'Inmersivo y Relajante', customPrompt: '', aiProvider: 'gemini' } } },
+  { id: '4', type: 'custom', position: { x: 1040, y: 180 }, data: { label: 'Prompts Visuales', category: 'IA', type: 'prompts', color: 'blue', icon: 'Camera', value: '', params: { ratio: '16:9', style: 'Documental', customPrompt: '' } } },
+  { id: '5', type: 'custom', position: { x: 1040, y: 420 }, data: { label: 'Generador TTS', category: 'Audio', type: 'tts', color: 'purple', icon: 'Mic', value: '', audios: [], params: { voice: 'Alvaro', speed: 1.0, pauses: 1.2 } } }
+];
+
+const initialEdges = [
+  { id: 'e1-2', source: '1', target: '2', type: 'bezier' },
+  { id: 'e2-3', source: '2', target: '3', type: 'bezier' },
+  { id: 'e3-4', source: '3', target: '4', type: 'bezier' },
+  { id: 'e3-5', source: '3', target: '5', type: 'bezier' }
+];
+
+// nodeTypes will be defined inside App to have access to handlers
+
+// --- SIDEBAR COMPONENT ---
+const Sidebar = ({ node, nodes, onClose, onUpdateNode, onDeleteNode, apiKeys, onRunFlow }) => {
+  const [searchVoice, setSearchVoice] = useState('');
+  if (!node) return null;
+  const { data } = node;
+  
+  const isDeepSeekActive = !!apiKeys.deepseek;
+  const isGeminiActive = !!apiKeys.gemini;
+  const isChatGPTActive = !!apiKeys.openai;
+  const isAi33Active = !!apiKeys.ai33;
+
+  const handleUpdate = (updates) => {
+    onUpdateNode(node.id, { ...data, ...updates });
+  };
+
+  const handleMockExecute = async (action) => {
+    try {
+      if (action === 'extract') {
+        const urlToFetch = data.value || 'https://youtube.com/watch?v=ScMzIvxBSi4';
+        onUpdateNode(node.id, { ...data, status: 'loading', statusMsg: 'Iniciando...' });
+        
+        const transcript = await fetchYoutubeTranscript(
+          urlToFetch, 
+          apiKeys,
+          (msg) => onUpdateNode(node.id, { ...data, status: 'loading', statusMsg: msg })
+        );
+        handleUpdate({ value: transcript, valuePreview: transcript.substring(0, 50) + '...', status: 'success', statusMsg: '' });
+      } else if (action === 'script') {
+        const transcriptNode = nodes.find(n => n.data?.type === 'extract');
+        const transcript = transcriptNode?.data.value;
+        if (!transcript) throw new Error("No hay una transcripción válida en el nodo de Extracción. Pégala o genérala primero.");
+        onUpdateNode(node.id, { ...data, status: 'loading', statusMsg: 'Generando guion...' });
+        
+        let result = "";
+        const provider = data.params?.aiProvider || 'gemini';
+        
+        if (provider === 'chatgpt' && apiKeys.openai) {
+          const customPrompt = data.params?.customPrompt ? data.params.customPrompt + '\n\n' : '';
+          result = await fetchChatGPTContent(`${customPrompt}Produce un guion documental para YouTube basado en este texto. Tono: ${data.params?.tone || 'Inmersivo'}\n\n${transcript}`, apiKeys.openai);
+        } else if (provider === 'gemini' && apiKeys.gemini) {
+          result = await fetchGeminiContent(`Produce un guion documental para YouTube basado en este texto. Tono: ${data.params?.tone || 'Inmersivo'}\n\n${transcript}`, apiKeys.gemini);
+        } else if (provider === 'deepseek' && apiKeys.deepseek) {
+          const prompt = `Genera un guion documental basado en este texto: ${transcript}`;
+          const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.deepseek}` },
+            body: JSON.stringify({ model: "deepseek-chat", messages: [{ role: "user", content: prompt }] }),
+            signal: AbortSignal.timeout(25000)
+          });
+          if (!resp.ok) throw new Error(`DeepSeek Error: ${resp.status}`);
+          const d = await resp.json();
+          result = d.choices[0].message.content;
+        } else if (provider === 'ollama') {
+          onUpdateNode(node.id, { ...data, status: 'loading', statusMsg: 'Consultando Ollama Local...' });
+          result = await callOllama(`Actúa como un guionista profesional de documentales. Basándote en el siguiente texto: "${transcript}", redacta un guion corto con un tono "${data.params?.tone || 'Inmersivo'}". Incluye indicaciones de voz en off.`, (type, msg) => onUpdateNode(node.id, { ...data, status: 'loading', statusMsg: msg }));
+        } else {
+          await new Promise(r => setTimeout(r, 1000));
+          result = MOCK_TEXTS.script;
+        }
+        handleUpdate({ value: result, valuePreview: result.substring(0, 50) + '...', status: 'success', statusMsg: '' });
+      } else if (action === 'prompts') {
+        const scriptNode = nodes.find(n => n.data?.type === 'script');
+        const script = scriptNode?.data.value;
+        if (!script || script.length < 30) throw new Error("No hay un guion válido. Genera un guion primero en el nodo anterior.");
+        onUpdateNode(node.id, { ...data, status: 'loading', statusMsg: 'Generando prompts visuales...' });
+
+        const promptsProvider = data.params?.aiProvider || 'gemini';
+        const styleHint = data.params?.customPrompt ? `\nEstilo visual deseado: ${data.params.customPrompt}` : '';
+        const basePrompt = `Basándote en este guion de video, genera una lista de prompts visuales detallados en inglés para generar imágenes con IA (Midjourney/DALL-E). Cada prompt debe incluir timestamps, estilo cinematográfico, aspect ratio ${data.params?.ratio || '16:9'}, estilo ${data.params?.style || 'Documental'}. Formato: numerado con timestamps.${styleHint}\n\nGuion:\n${script}`;
+
+        let result = '';
+        if (promptsProvider === 'chatgpt' && apiKeys.openai) {
+          result = await fetchChatGPTContent(basePrompt, apiKeys.openai);
+        } else if (promptsProvider === 'gemini' && apiKeys.gemini) {
+          result = await fetchGeminiContent(basePrompt, apiKeys.gemini);
+        } else if (promptsProvider === 'deepseek' && apiKeys.deepseek) {
+          const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.deepseek}` },
+            body: JSON.stringify({ model: 'deepseek-chat', messages: [{ role: 'user', content: basePrompt }] }),
+            signal: AbortSignal.timeout(25000)
+          });
+          if (!resp.ok) throw new Error(`DeepSeek Error: ${resp.status}`);
+          const d = await resp.json();
+          result = d.choices[0].message.content;
+        } else if (promptsProvider === 'ollama') {
+          onUpdateNode(node.id, { ...data, status: 'loading', statusMsg: 'Consultando Ollama Local...' });
+          result = await callOllama(basePrompt, (type, msg) => onUpdateNode(node.id, { ...data, status: 'loading', statusMsg: msg }));
+        } else {
+          await new Promise(r => setTimeout(r, 800));
+          result = MOCK_TEXTS.prompts;
+        }
+        handleUpdate({ value: result, valuePreview: result.substring(0, 40) + '...', status: 'success', statusMsg: '' });
+      }
+    } catch (err) {
+      alert("Error: " + err.message);
+      onUpdateNode(node.id, { ...data, status: 'error' });
+    }
+  };
+
+  return (
+    <div className="absolute top-4 right-4 bottom-4 w-96 glass rounded-2xl shadow-2xl flex flex-col overflow-hidden z-40 animate-in slide-in-from-right-8 duration-300">
+      {/* Header */}
+      <div className="h-16 border-b border-gray-200 flex items-center justify-between px-6 bg-white/5 relative z-10">
+          <div className="flex items-center gap-3">
+            <Settings2 size={18} className="text-app-muted" />
+            <h2 className="font-medium text-app-text">Configuración</h2>
+          </div>
+          <div className="flex items-center gap-1">
+            <button 
+              onClick={() => onDeleteNode(node.id)}
+              className="p-2 hover:bg-red-500/10 rounded-xl transition-colors text-app-muted hover:text-red-600"
+              title="Eliminar Nodo"
+            >
+              <Trash2 size={18} />
+            </button>
+            <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-colors text-app-muted hover:text-black">
+              <X size={18} />
+            </button>
+          </div>
+        </div>
+
+      {/* Content */}
+      <div className="p-6 flex-1 overflow-y-auto scrollbar-hide flex flex-col gap-6 relative z-10">
+        <div className="flex items-center gap-4 pb-2 border-b border-gray-200">
+          <div className={cn("p-3 rounded-xl", 
+            data.color === 'red' ? 'bg-red-500/20 text-red-600' :
+            data.color === 'green' ? 'bg-emerald-500/20 text-emerald-600' :
+            data.color === 'yellow' ? 'bg-amber-500/20 text-amber-600' :
+            data.color === 'blue' ? 'bg-blue-500/20 text-blue-400' :
+            'bg-purple-500/20 text-purple-400'
+          )}>
+            {React.createElement(Icons[data.icon] || Settings2, { size: 24 })}
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-black">{data.label}</h3>
+            <p className="text-xs text-app-muted">{data.category}</p>
+          </div>
+        </div>
+
+        {/* Dynamic Fields based on Type */}
+        {data.type === 'trigger' && (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-app-muted uppercase tracking-wider">Video URL de Referencia</label>
+              <div className="relative">
+                <LinkIcon size={16} className="absolute left-3 top-3 text-app-muted" />
+                <input 
+                  type="text" 
+                  value={data.value || ''}
+                  onChange={(e) => handleUpdate({ value: e.target.value, valuePreview: e.target.value })}
+                  className="w-full bg-gray-100 border border-gray-300 rounded-xl pl-9 pr-4 py-2.5 text-sm text-black focus:outline-none focus:border-indigo-500/50 transition-colors"
+                  placeholder="https://youtube.com/..."
+                />
+              </div>
+            </div>
+            <p className="text-xs text-app-muted leading-relaxed">
+              Introduce la URL de un video de YouTube para extraer su transcripción cruda y usarla como base del documental.
+            </p>
+          </div>
+        )}
+
+        {data.type === 'extract' && (
+          <div className="space-y-4 flex flex-col h-full">
+            {/* Step 1: Link to get transcript */}
+            <a 
+              href="https://youtubetotranscript.com/" 
+              target="_blank" 
+              className="w-full flex items-center justify-center gap-3 py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-black font-bold text-sm transition-all shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
+            >
+              <ExternalLink size={18} />
+              Obtener Transcripción →
+            </a>
+            
+            <div className="p-3 bg-emerald-500/5 border border-emerald-500/15 rounded-xl">
+              <p className="text-[11px] text-app-muted leading-relaxed">
+                <span className="text-emerald-600 font-bold">Paso 1:</span> Haz clic arriba, pega la URL del video y copia el texto.
+                <br/>
+                <span className="text-emerald-600 font-bold">Paso 2:</span> Pega la transcripción en el cuadro de abajo.
+                <br/>
+                <span className="text-emerald-600 font-bold">Paso 3:</span> Pulsa "Continuar Proceso" para generar el guion.
+              </p>
+            </div>
+
+            {/* Step 2: Paste area */}
+            <div className="flex-1 min-h-[350px] flex flex-col">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-[10px] font-bold text-app-muted uppercase tracking-widest opacity-60">Transcripción del Video</label>
+                {data.value && (
+                  <span className="text-[10px] text-emerald-600 font-mono">{data.value.length.toLocaleString()} chars</span>
+                )}
+              </div>
+              <textarea 
+                value={data.value || ''}
+                onChange={(e) => handleUpdate({ value: e.target.value, valuePreview: e.target.value.length > 0 ? e.target.value.substring(0, 50) + '...' : '', status: e.target.value.length > 50 ? 'success' : 'idle' })}
+                placeholder="Pega aquí la transcripción copiada de YouTubeToTranscript..."
+                className="w-full flex-1 bg-gray-100 border border-gray-300 rounded-xl p-4 text-[13px] text-black leading-relaxed resize-none focus:outline-none focus:border-emerald-500/40 scrollbar-thin placeholder:opacity-30 transition-colors"
+              />
+            </div>
+
+            {/* Step 3: Continue */}
+            {data.value && data.value.length > 50 ? (
+              <button 
+                onClick={() => onRunFlow(node.id)}
+                className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-black font-bold py-3.5 rounded-xl transition-all shadow-lg shadow-indigo-500/20 active:scale-[0.98]"
+              >
+                <Play size={16} fill="currentColor" />
+                CONTINUAR PROCESO →
+              </button>
+            ) : (
+              <div className="w-full py-3 rounded-xl border border-dashed border-gray-300 flex items-center justify-center gap-2 text-app-muted/40 text-xs">
+                <FileText size={14} />
+                Pega al menos 50 caracteres para continuar
+              </div>
+            )}
+          </div>
+        )}
+
+        {data.type === 'script' && (
+          <div className="space-y-4 flex flex-col h-full">
+            <div className="space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+               <div className="space-y-2">
+                <label className="text-xs font-medium text-app-muted uppercase tracking-wider">Tono del Guion</label>
+                <select 
+                  value={data.params?.tone || 'Inmersivo y Relajante'}
+                  onChange={(e) => handleUpdate({ params: { ...data.params, tone: e.target.value }})}
+                  className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-sm text-black focus:outline-none focus:border-indigo-500/50 appearance-none"
+                >
+                  <option>Inmersivo y Relajante</option>
+                  <option>Misterio Oscuro</option>
+                  <option>Documental Histórico Clásico</option>
+                  <option>Dinámico y Emocionante</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-app-muted uppercase tracking-wider">Proveedor IA</label>
+                <select 
+                  value={data.params?.aiProvider || 'gemini'}
+                  onChange={(e) => handleUpdate({ params: { ...data.params, aiProvider: e.target.value }})}
+                  className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-sm text-black focus:outline-none focus:border-indigo-500/50 appearance-none"
+                >
+                  <option value="gemini">Google Gemini (Gratis / Rápido)</option>
+                  <option value="chatgpt">ChatGPT / OpenAI (Premium)</option>
+                  <option value="deepseek">DeepSeek v3 (Balance Requerido)</option>
+                  <option value="ollama">Ollama (Local / Llama3)</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-app-muted uppercase tracking-wider">Instrucciones de Guion (Prompt)</label>
+                <textarea 
+                  value={data.params?.customPrompt || ''}
+                  onChange={(e) => handleUpdate({ params: { ...data.params, customPrompt: e.target.value }})}
+                  placeholder="Ej: 'Escribe como un historiador cínico...' o 'Evita tecnicismos...'"
+                  className="w-full bg-gray-100 border border-gray-300 rounded-xl p-3 text-sm text-black focus:outline-none focus:border-indigo-500/50 min-h-[80px] resize-none"
+                />
+              </div>
+            </div>
+            <button 
+              onClick={() => handleMockExecute('script')}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 font-semibold py-3 rounded-xl transition-all shadow-lg",
+                (data.params?.aiProvider === 'gemini' ? isGeminiActive : isDeepSeekActive)
+                  ? "bg-gradient-to-r from-indigo-500 to-blue-500 hover:from-indigo-400 hover:to-blue-400 text-black shadow-indigo-500/20"
+                  : "bg-white/5 border border-gray-300 text-app-muted cursor-not-allowed"
+              )}
+              disabled={(() => {
+                const p = data.params?.aiProvider || 'gemini';
+                if (p === 'gemini') return !isGeminiActive;
+                if (p === 'chatgpt') return !isChatGPTActive;
+                if (p === 'deepseek') return !isDeepSeekActive;
+                if (p === 'ollama') return false;
+                return true;
+              })()}
+            >
+              <Sparkles size={18} />
+              {(() => {
+                const p = data.params?.aiProvider || 'gemini';
+                const active = p === 'gemini' ? isGeminiActive : p === 'chatgpt' ? isChatGPTActive : (p === 'ollama' ? true : isDeepSeekActive);
+                const name = p === 'gemini' ? 'Gemini' : p === 'chatgpt' ? 'ChatGPT' : (p === 'ollama' ? 'Ollama' : 'DeepSeek');
+                return active ? `Generar con ${name}` : `Configura ${name}`;
+              })()}
+            </button>
+            {(() => {
+              const p = data.params?.aiProvider || 'gemini';
+              const active = p === 'gemini' ? isGeminiActive : p === 'chatgpt' ? isChatGPTActive : isDeepSeekActive;
+              const name = p === 'gemini' ? 'Gemini' : p === 'chatgpt' ? 'ChatGPT' : 'DeepSeek';
+              return !active ? (
+                <p className="text-[10px] text-amber-500/80 text-center italic">
+                  Requiere API Key de {name} configurada
+                </p>
+              ) : null;
+            })()}
+            <div className="flex-1 min-h-[250px] flex flex-col mt-1">
+              <label className="text-xs font-medium text-app-muted uppercase tracking-wider mb-2">Resultado Curado</label>
+              <textarea 
+                readOnly
+                value={data.value || ''}
+                placeholder="El guion estructurado aparecerá aquí..."
+                className="w-full flex-1 bg-gray-100 border border-gray-300 rounded-xl p-4 text-[13px] text-black leading-relaxed resize-none focus:outline-none"
+              />
+            </div>
+          </div>
+        )}
+
+        {data.type === 'prompts' && (
+          <div className="space-y-5 flex flex-col h-full">
+            <div className="bg-gray-50 p-4 rounded-xl border border-gray-200 space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-app-muted uppercase tracking-wider">Aspect Ratio</label>
+                  <select 
+                    value={data.params?.ratio || '16:9'}
+                    onChange={(e) => handleUpdate({ params: { ...data.params, ratio: e.target.value }})}
+                    className="w-full bg-gray-100 border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-black outline-none"
+                  >
+                    <option>16:9 (Youtube)</option>
+                    <option>9:16 (Shorts)</option>
+                    <option>1:1 (Insta)</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-app-muted uppercase tracking-wider">Estilo</label>
+                  <select 
+                    value={data.params?.style || 'Documental'}
+                    onChange={(e) => handleUpdate({ params: { ...data.params, style: e.target.value }})}
+                    className="w-full bg-gray-100 border border-gray-300 rounded-xl px-3 py-2.5 text-sm text-black outline-none"
+                  >
+                    <option>Documental</option>
+                    <option>Cinematográfico</option>
+                    <option>Realismo Mágico</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-app-muted uppercase tracking-wider">Proveedor IA (Prompts)</label>
+                <select 
+                  value={data.params?.aiProvider || 'gemini'}
+                  onChange={(e) => handleUpdate({ params: { ...data.params, aiProvider: e.target.value }})}
+                  className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-3 text-sm text-black focus:outline-none focus:border-indigo-500/50 appearance-none"
+                >
+                  <option value="gemini">Google Gemini (Gratis / Rápido)</option>
+                  <option value="chatgpt">ChatGPT / OpenAI (Premium)</option>
+                  <option value="deepseek">DeepSeek v3 (Balance Requerido)</option>
+                  <option value="ollama">Ollama (Local / Llama3)</option>
+                </select>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-app-muted uppercase tracking-wider">Estilo de Imagen (Prompt)</label>
+                <textarea 
+                  value={data.params?.customPrompt || ''}
+                  onChange={(e) => handleUpdate({ params: { ...data.params, customPrompt: e.target.value }})}
+                  placeholder="Ej: 'Estilo cyber-noir con luces neón...' o 'Pintura al óleo barroca...'"
+                  className="w-full bg-gray-100 border border-gray-300 rounded-xl p-3 text-sm text-black focus:outline-none focus:border-indigo-500/50 min-h-[80px] resize-none"
+                />
+              </div>
+            </div>
+            <button 
+              onClick={() => handleMockExecute('prompts')}
+              className={cn(
+                "w-full flex items-center justify-center gap-2 font-semibold py-3 rounded-xl transition-all shadow-lg",
+                (() => {
+                  const p = data.params?.aiProvider || 'gemini';
+                  const active = p === 'gemini' ? isGeminiActive : p === 'chatgpt' ? isChatGPTActive : isDeepSeekActive;
+                  return active;
+                })()
+                  ? "bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-400 hover:to-cyan-400 text-black shadow-blue-500/20"
+                  : "bg-white/5 border border-gray-300 text-app-muted cursor-not-allowed"
+              )}
+              disabled={(() => {
+                const p = data.params?.aiProvider || 'gemini';
+                if (p === 'gemini') return !isGeminiActive;
+                if (p === 'chatgpt') return !isChatGPTActive;
+                if (p === 'deepseek') return !isDeepSeekActive;
+                if (p === 'ollama') return false;
+                return true;
+              })()}
+            >
+              <ImageIcon size={18} />
+              {(() => {
+                const p = data.params?.aiProvider || 'gemini';
+                const active = p === 'gemini' ? isGeminiActive : p === 'chatgpt' ? isChatGPTActive : (p === 'ollama' ? true : isDeepSeekActive);
+                const name = p === 'gemini' ? 'Gemini' : p === 'chatgpt' ? 'ChatGPT' : (p === 'ollama' ? 'Ollama' : 'DeepSeek');
+                return active ? `Generar Prompts con ${name}` : `Configura ${name}`;
+              })()}
+            </button>
+            {(() => {
+              const p = data.params?.aiProvider || 'gemini';
+              const active = p === 'gemini' ? isGeminiActive : p === 'chatgpt' ? isChatGPTActive : isDeepSeekActive;
+              const name = p === 'gemini' ? 'Gemini' : p === 'chatgpt' ? 'ChatGPT' : 'DeepSeek';
+              return !active ? (
+                <p className="text-[10px] text-amber-500/80 text-center italic">
+                  Requiere API Key de {name} configurada
+                </p>
+              ) : null;
+            })()}
+
+            <div className="flex-1 min-h-[250px] flex flex-col mt-1">
+              <label className="text-xs font-medium text-app-muted uppercase tracking-wider mb-2">Prompts Técnicos</label>
+              <textarea 
+                readOnly
+                value={data.value || ''}
+                placeholder="Los prompts en inglés aparecerán aquí..."
+                className="w-full flex-1 bg-gray-100 border border-gray-300 rounded-xl p-4 text-[13px] font-mono text-app-muted leading-relaxed resize-none focus:outline-none"
+              />
+            </div>
+          </div>
+        )}
+
+        {data.type === 'tts' && (
+          <div className="space-y-6 flex flex-col h-full">
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-app-muted uppercase tracking-wider">Buscar Voz (Ai33.pro)</label>
+                <div className="relative">
+                  <Search size={16} className="absolute left-3 top-3 text-app-muted" />
+                  <input 
+                    type="text" 
+                    value={searchVoice}
+                    onChange={(e) => setSearchVoice(e.target.value)}
+                    placeholder="Escribe el nombre o idioma..."
+                    className="w-full bg-gray-100 border border-gray-300 rounded-xl pl-9 pr-4 py-2.5 text-sm text-black focus:outline-none focus:border-indigo-500/50 transition-colors"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2 max-h-[160px] overflow-y-auto pr-2 scrollbar-hide">
+                <div className="grid grid-cols-1 gap-2">
+                  {AI33_VOICES.filter(v => 
+                    v.name.toLowerCase().includes(searchVoice.toLowerCase()) || 
+                    v.lang.toLowerCase().includes(searchVoice.toLowerCase())
+                  ).map(voice => (
+                    <button
+                      key={voice.id}
+                      onClick={() => handleUpdate({ params: { ...data.params, voice: voice.name }})}
+                      className={cn(
+                        "flex items-center justify-between p-3 rounded-xl border text-left transition-all",
+                        data.params?.voice === voice.name 
+                          ? "bg-purple-500/20 border-purple-500/50 text-black" 
+                          : "bg-gray-50 border-gray-200 text-app-muted hover:bg-white/5 hover:border-gray-300"
+                      )}
+                    >
+                      <div className="flex flex-col gap-0.5">
+                        <span className="text-sm font-semibold">{voice.name}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] uppercase tracking-wider font-medium opacity-60">{voice.lang}</span>
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-gray-300 bg-white/5">{voice.gender}</span>
+                        </div>
+                      </div>
+                      {data.params?.voice === voice.name && (
+                        <div className="w-2 h-2 rounded-full bg-purple-500 shadow-lg shadow-purple-500/50"></div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-4 bg-gray-50 p-4 rounded-xl border border-gray-200">
+                <div className="space-y-3">
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="text-xs font-medium text-app-muted uppercase tracking-wider">Velocidad</label>
+                      <span className="text-xs text-black">{data.params?.speed || 1.0}x</span>
+                    </div>
+                    <input 
+                      type="range" min="0.5" max="2" step="0.1" 
+                      value={data.params?.speed || 1.0}
+                      onChange={(e) => handleUpdate({ params: { ...data.params, speed: parseFloat(e.target.value) }})}
+                      className="w-full accent-purple-500" 
+                    />
+                  </div>
+                  <div>
+                    <div className="flex justify-between mb-1">
+                      <label className="text-xs font-medium text-app-muted uppercase tracking-wider">Mínimo Pausas</label>
+                      <span className="text-xs text-black">{data.params?.pauses || 1.2}s</span>
+                    </div>
+                    <input 
+                      type="range" min="0.1" max="3" step="0.1" 
+                      value={data.params?.pauses || 1.2}
+                      onChange={(e) => handleUpdate({ params: { ...data.params, pauses: parseFloat(e.target.value) }})}
+                      className="w-full accent-purple-500" 
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* TEST VOICE SECTION */}
+              <div className="space-y-3 bg-purple-500/5 p-4 rounded-xl border border-purple-500/10">
+                <label className="text-xs font-bold text-purple-400 uppercase tracking-wider flex items-center gap-2">
+                  <Volume2 size={14} />
+                  Probar Voz
+                </label>
+                <textarea 
+                  value={data.params?.testText || ''}
+                  onChange={(e) => handleUpdate({ params: { ...data.params, testText: e.target.value }})}
+                  placeholder="Escribe un texto corto para probar la voz seleccionada..."
+                  className="w-full bg-gray-100 border border-gray-300 rounded-xl p-3 text-sm text-black focus:outline-none focus:border-purple-500/40 min-h-[70px] resize-none placeholder:opacity-30"
+                />
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      const text = data.params?.testText || 'Hola, esta es una prueba de voz.';
+                      window.speechSynthesis.cancel();
+                      const utter = new SpeechSynthesisUtterance(text);
+                      const voices = window.speechSynthesis.getVoices();
+                      const voiceName = data.params?.voice || 'Alvaro';
+                      // Try to match a Spanish voice
+                      const match = voices.find(v => v.lang.startsWith('es')) || voices[0];
+                      if (match) utter.voice = match;
+                      utter.rate = data.params?.speed || 1.0;
+                      window.speechSynthesis.speak(utter);
+                    }}
+                    disabled={!data.params?.testText}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all",
+                      data.params?.testText 
+                        ? "bg-purple-500/20 hover:bg-purple-500/30 text-purple-300 border border-purple-500/30" 
+                        : "bg-white/5 border border-gray-300 text-app-muted/40 cursor-not-allowed"
+                    )}
+                  >
+                    <Play size={14} fill="currentColor" />
+                    Preview Local
+                  </button>
+                  <button 
+                    onClick={async () => {
+                      if (!apiKeys.ai33) return;
+                      const text = data.params?.testText || 'Hola, esta es una prueba de voz.';
+                      handleUpdate({ params: { ...data.params, testLoading: true }});
+                      try {
+                        const audio = await callAi33TTS(text, apiKeys.ai33, data.params, (type, msg) => console.log(`[TTS Test] ${type}: ${msg}`));
+                        // Create downloadable link
+                        const link = document.createElement('a');
+                        link.href = audio.url;
+                        link.download = `test_${data.params?.voice || 'voz'}_${Date.now()}.mp3`;
+                        link.target = '_blank';
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                        handleUpdate({ params: { ...data.params, testLoading: false }});
+                      } catch(e) {
+                        alert('Error generando audio: ' + e.message);
+                        handleUpdate({ params: { ...data.params, testLoading: false }});
+                      }
+                    }}
+                    disabled={!isAi33Active || !data.params?.testText || data.params?.testLoading}
+                    className={cn(
+                      "flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-semibold transition-all",
+                      isAi33Active && data.params?.testText
+                        ? "bg-gradient-to-r from-purple-600 to-fuchsia-500 hover:from-purple-500 hover:to-fuchsia-400 text-black shadow-lg shadow-purple-500/20" 
+                        : "bg-white/5 border border-gray-300 text-app-muted/40 cursor-not-allowed"
+                    )}
+                  >
+                    {data.params?.testLoading ? (
+                      <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                    ) : (
+                      <Download size={14} />
+                    )}
+                    {data.params?.testLoading ? 'Generando...' : 'AI33 + Descargar'}
+                  </button>
+                </div>
+                <p className="text-[9px] text-app-muted/50 text-center">
+                  "Preview Local" usa tu navegador • "AI33 + Descargar" genera audio real con la API
+                </p>
+              </div>
+
+              <button 
+                onClick={() => {
+                  const newAudio = { 
+                    id: Date.now(), 
+                    voice: data.params?.voice || 'Desconocida', 
+                    time: new Date().toLocaleTimeString(),
+                    status: 'completed'
+                  };
+                  handleUpdate({ audios: [newAudio, ...(data.audios || [])] });
+                }}
+                className={cn(
+                  "w-full flex items-center justify-center gap-2 font-semibold py-3 rounded-xl transition-all shadow-lg",
+                  isAi33Active 
+                    ? "bg-purple-500 hover:bg-purple-400 text-black shadow-purple-500/20"
+                    : "bg-white/5 border border-gray-300 text-app-muted cursor-not-allowed"
+                )}
+                disabled={!isAi33Active}
+              >
+                <Mic size={18} />
+                {isAi33Active ? 'Generar Audio Completo' : 'Configura Ai33'}
+              </button>
+              {!isAi33Active && (
+                <p className="text-[10px] text-amber-500/80 text-center italic">Requiere API Key de Ai33 configurada</p>
+              )}
+            </div>
+
+            {/* Lista de Audios Generados */}
+            <div className="flex-1 min-h-[150px] flex flex-col pt-2 border-t border-gray-200">
+              <label className="text-xs font-medium text-app-muted uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Clock size={14} />
+                Audios Generados
+              </label>
+              
+              <div className="flex-1 overflow-y-auto pr-2 space-y-3 scrollbar-hide">
+                {!data.audios || data.audios.length === 0 ? (
+                  <div className="h-full flex flex-col items-center justify-center text-center p-4 border-2 border-dashed border-gray-200 rounded-2xl">
+                    <Volume2 size={32} className="text-black/5 mb-2" />
+                    <p className="text-xs text-app-muted opacity-40">No hay audios generados aún</p>
+                  </div>
+                ) : (
+                  data.audios.map(audio => (
+                    <div key={audio.id} className="bg-white/5 border border-gray-200 rounded-xl p-3 flex items-center justify-between group hover:border-purple-500/30 transition-all">
+                      <div className="flex items-center gap-3">
+                        <button className="h-9 w-9 rounded-full bg-purple-500/20 text-purple-400 flex items-center justify-center group-hover:bg-purple-500 group-hover:text-black transition-all">
+                          <Play size={14} fill="currentColor" />
+                        </button>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-black">{audio.voice}</span>
+                          <span className="text-[10px] text-app-muted">{audio.time} • 320kbps</span>
+                        </div>
+                      </div>
+                      <button className="p-2 text-app-muted hover:text-black opacity-0 group-hover:opacity-100 transition-all">
+                        <Download size={16} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+    </div>
+  );
+}
+
+// --- API MODAL COMPONENT ---
+function ApiModal({ isOpen, onClose, apiKeys, setApiKeys }) {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="w-[480px] glass rounded-2xl shadow-2xl flex flex-col overflow-hidden animate-in zoom-in-95 duration-200 border border-gray-300">
+        <div className="h-16 border-b border-gray-200 flex items-center justify-between px-6 bg-white/5 relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-500/20 text-amber-600 rounded-xl">
+              <Key size={18} />
+            </div>
+            <h2 className="font-medium text-black">Configuración de APIs</h2>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-xl transition-colors text-app-muted hover:text-black">
+            <X size={18} />
+          </button>
+        </div>
+        
+        <div className="p-6 space-y-6 relative z-10">
+          <div className="space-y-4">
+            <p className="text-xs text-app-muted leading-relaxed">
+              Configura tus claves de API para habilitar las funcionalidades de Inteligencia Artificial y generación de contenido en este flujo de trabajo.
+            </p>
+          </div>
+          
+          <div className="space-y-2">
+             <label className="text-xs font-medium text-app-muted uppercase tracking-wider flex items-center justify-between">
+               <span>DeepSeek API Key <span className="normal-case opacity-60 ml-1">(Texto / Guion)</span></span>
+               {apiKeys.deepseek && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
+             </label>
+             <input 
+               type="password" 
+               value={apiKeys.deepseek || ''}
+               onChange={(e) => setApiKeys({...apiKeys, deepseek: e.target.value})}
+               placeholder="sk-..."
+               className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-black focus:outline-none focus:border-amber-500/50 transition-colors"
+             />
+          </div>
+
+          <div className="space-y-2">
+             <label className="text-xs font-medium text-app-muted uppercase tracking-wider flex items-center justify-between">
+               <span>Google Gemini Key <span className="normal-case opacity-60 ml-1">(Alternativa Gratuita)</span></span>
+               {apiKeys.gemini && <span className="w-2 h-2 rounded-full bg-blue-400"></span>}
+             </label>
+             <input 
+               type="password" 
+               value={apiKeys.gemini || ''}
+               onChange={(e) => setApiKeys({...apiKeys, gemini: e.target.value})}
+               placeholder="Introduce tu Gemini API key..."
+               className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-black focus:outline-none focus:border-blue-500/50 transition-colors"
+             />
+             <p className="text-[10px] text-app-muted opacity-60 italic flex items-center gap-1">
+               Consíguela gratis en <a href="https://aistudio.google.com/" target="_blank" className="text-blue-400 underline">Google AI Studio</a>.
+             </p>
+          </div>
+
+          <div className="space-y-2">
+             <label className="text-xs font-medium text-app-muted uppercase tracking-wider flex items-center justify-between">
+               <span>TranscriptAPI.com <span className="normal-case opacity-60 ml-1">(Recomendado para Transcripción)</span></span>
+               {apiKeys.transcriptApi && <span className="w-2 h-2 rounded-full bg-blue-500"></span>}
+             </label>
+             <input 
+               type="password" 
+               value={apiKeys.transcriptApi || ''}
+               onChange={(e) => setApiKeys({...apiKeys, transcriptApi: e.target.value})}
+               placeholder="sk_..."
+               className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-black focus:outline-none focus:border-blue-500/50 transition-colors"
+             />
+             <p className="text-[10px] text-app-muted opacity-60 italic">Evita bloqueos y CAPTCHAs de YouTube.</p>
+          </div>
+
+          <div className="space-y-2">
+             <label className="text-xs font-medium text-app-muted uppercase tracking-wider flex items-center justify-between">
+               <span>YouTube API Key <span className="normal-case opacity-60 ml-1">(Opcional - Google Cloud)</span></span>
+               {apiKeys.youtube && <span className="w-2 h-2 rounded-full bg-red-500"></span>}
+             </label>
+             <input 
+               type="password" 
+               value={apiKeys.youtube || ''}
+               onChange={(e) => setApiKeys({...apiKeys, youtube: e.target.value})}
+               placeholder="API Key de Google..."
+               className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-black focus:outline-none focus:border-red-500/50 transition-colors"
+             />
+          </div>
+
+          <div className="space-y-2">
+             <label className="text-xs font-medium text-app-muted uppercase tracking-wider flex items-center justify-between">
+               <span>OpenAI / ChatGPT Key <span className="normal-case opacity-60 ml-1">(Guion Premium)</span></span>
+               {apiKeys.openai && <span className="w-2 h-2 rounded-full bg-emerald-400"></span>}
+             </label>
+             <input 
+               type="password" 
+               value={apiKeys.openai || ''}
+               onChange={(e) => setApiKeys({...apiKeys, openai: e.target.value})}
+               placeholder="sk-..."
+               className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-black focus:outline-none focus:border-emerald-500/50 transition-colors"
+             />
+             <p className="text-[10px] text-app-muted opacity-60 italic flex items-center gap-1">
+               Consíguela en <a href="https://platform.openai.com/api-keys" target="_blank" className="text-emerald-600 underline">platform.openai.com</a>. Usa gpt-4o-mini o gpt-3.5-turbo.
+             </p>
+          </div>
+
+          <div className="space-y-2">
+             <label className="text-xs font-medium text-app-muted uppercase tracking-wider flex items-center justify-between">
+               <span>Ai33.pro API Key <span className="normal-case opacity-60 ml-1">(Voz / TTS)</span></span>
+               {apiKeys.ai33 && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
+             </label>
+             <input 
+               type="password" 
+               value={apiKeys.ai33 || ''}
+               onChange={(e) => setApiKeys({...apiKeys, ai33: e.target.value})}
+               placeholder="Introduce tu API key..."
+               className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-black focus:outline-none focus:border-amber-500/50 transition-colors"
+             />
+          </div>
+          <div className="space-y-2">
+             <label className="text-xs font-medium text-app-muted uppercase tracking-wider flex items-center justify-between">
+               <span>Pexels/Pixabay API Key <span className="normal-case opacity-60 ml-1">(Videos Stock)</span></span>
+               {apiKeys.pexels && <span className="w-2 h-2 rounded-full bg-emerald-500"></span>}
+             </label>
+             <input 
+               type="password" 
+               value={apiKeys.pexels || ''}
+               onChange={(e) => setApiKeys({...apiKeys, pexels: e.target.value})}
+               placeholder="Introduce tu API key..."
+               className="w-full bg-gray-100 border border-gray-300 rounded-xl px-4 py-2.5 text-sm text-black focus:outline-none focus:border-amber-500/50 transition-colors"
+             />
+          </div>
+        </div>
+
+        <div className="p-4 border-t border-gray-200 bg-gray-50 flex justify-end relative z-10">
+          <button onClick={onClose} className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 text-black rounded-xl text-sm font-semibold transition-colors shadow-lg shadow-amber-500/20">
+            Guardar Configuración
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// --- NODE LIBRARY COMPONENT ---
+function NodeLibrary({ isOpen, onAddNode }) {
+  const library = [
+    { label: 'Input URL', category: 'Trigger', type: 'trigger', color: 'red', icon: 'Youtube' },
+    { label: 'Traductor IA', category: 'Procesamiento', type: 'translate', color: 'blue', icon: 'Sparkles' },
+    { label: 'Editor Guion', category: 'Generación', type: 'script', color: 'yellow', icon: 'Brain' },
+    { label: 'Gen Imagen', category: 'IA', type: 'prompts', color: 'blue', icon: 'Camera' },
+    { label: 'Voz AI33', category: 'Audio', type: 'tts', color: 'purple', icon: 'Mic' },
+    { label: 'Subtítulos', category: 'Video', type: 'subs', color: 'green', icon: 'FileText' },
+  ];
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="absolute top-24 left-4 bottom-4 w-72 glass rounded-2xl shadow-2xl flex flex-col overflow-hidden z-[45] animate-in slide-in-from-left-8 duration-300 border border-gray-300">
+      <div className="p-4 border-b border-gray-200 bg-white/5 flex items-center justify-between">
+        <h2 className="text-xs font-bold text-black uppercase tracking-[0.1em]">Librería de Nodos</h2>
+        <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse"></div>
+      </div>
+      <div className="p-2 gap-2 flex flex-col overflow-y-auto scrollbar-hide">
+        {library.map((item, idx) => (
+          <button
+            key={idx}
+            onClick={() => onAddNode(item)}
+            className="flex items-center gap-3 p-3 rounded-xl hover:bg-white/10 transition-all text-left group"
+          >
+            <div className={cn(
+              "p-2 rounded-lg transition-transform group-hover:scale-110",
+              item.color === 'red' ? 'bg-red-500/20 text-red-600' :
+              item.color === 'blue' ? 'bg-blue-500/20 text-blue-400' :
+              item.color === 'green' ? 'bg-emerald-500/20 text-emerald-600' :
+              item.color === 'yellow' ? 'bg-amber-500/20 text-amber-600' :
+              'bg-purple-500/20 text-purple-400'
+            )}>
+              {React.createElement(Icons[item.icon] || Plus, { size: 18 })}
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-black">{item.label}</p>
+              <p className="text-[10px] text-app-muted">{item.category}</p>
+            </div>
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// --- MAIN APP COMPONENT ---
+function VisualFlowApp() {
+  const [nodes, setNodes] = useState(initialNodes);
+  const [edges, setEdges] = useState(initialEdges);
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [showApiModal, setShowApiModal] = useState(false);
+  const [showLibrary, setShowLibrary] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
+  const [systemLogs, setSystemLogs] = useState([
+    { id: 1, type: 'info', msg: 'Sistema inicializado correctamente', details: `Protocolo detectado: ${window.location.protocol}` },
+    { id: 2, type: 'warning', msg: 'Ejecución desde archivo detectada', details: 'Algunas APIs pueden requerir el uso de un servidor local o el Proxy de Seguridad activo debido a políticas de CORS.' }
+  ]);
+
+  const addLog = useCallback((type, msg, details = '') => {
+    setSystemLogs(prev => [{ id: Date.now(), type, msg, details }, ...prev].slice(0, 50));
+  }, []);
+  
+  // Persistent API Keys
+  const [apiKeys, setApiKeys] = useState(() => {
+    const saved = localStorage.getItem('flow_api_keys');
+    return saved ? { deepseek: '', gemini: '', openai: '', ai33: '', youtube: '', transcriptApi: '', pexels: '', ...JSON.parse(saved) } : { deepseek: '', gemini: '', openai: '', ai33: '', youtube: '', transcriptApi: '', pexels: '' };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('flow_api_keys', JSON.stringify(apiKeys));
+  }, [apiKeys]);
+
+  const onNodesChange = useCallback(
+    (changes) => setNodes((nds) => applyNodeChanges(changes, nds)),
+    []
+  );
+  
+  const onEdgesChange = useCallback(
+    (changes) => setEdges((eds) => applyEdgeChanges(changes, eds)),
+    []
+  );
+  
+  const onConnect = useCallback(
+    (params) => setEdges((eds) => addEdge({ ...params, type: 'bezier' }, eds)),
+    []
+  );
+
+  const onNodeClick = useCallback((event, node) => {
+    setSelectedNodeId(node.id);
+  }, []);
+
+  const onPaneClick = useCallback(() => {
+    setSelectedNodeId(null);
+  }, []);
+
+  const handleUpdateNode = useCallback((id, newData) => {
+    setNodes(nds => nds.map(node => {
+      if (node.id === id) {
+        return { ...node, data: newData };
+      }
+      return node;
+    }));
+  }, []);
+
+  const handleAddNode = useCallback((template) => {
+    const id = Date.now().toString();
+    const newNode = {
+      id,
+      type: 'custom',
+      position: { x: Math.random() * 400 + 100, y: Math.random() * 400 + 100 },
+      data: { ...template, status: 'idle' }
+    };
+    setNodes(nds => [...nds, newNode]);
+  }, []);
+
+  const handleDeleteNode = useCallback((id) => {
+    setNodes(nds => nds.filter(n => n.id !== id));
+    setEdges(eds => eds.filter(e => e.source !== id && e.target !== id));
+    setSelectedNodeId(null);
+  }, []);
+
+  const nodesRef = useRef(nodes);
+  useEffect(() => { nodesRef.current = nodes; }, [nodes]);
+
+   const handleRunFlow = async (startFromId = null, forceMock = false) => {
+    if (isRunning && !forceMock) return;
+    setIsRunning(true);
+    
+    try {
+      // Usar nodesRef.current asegura que leemos el estado MÁS reciente en cada paso async
+      const getNodesByType = () => ({
+        trigger: nodesRef.current.find(n => n.data?.type === 'trigger'),
+        extract: nodesRef.current.find(n => n.data?.type === 'extract'),
+        script: nodesRef.current.find(n => n.data?.type === 'script'),
+        prompts: nodesRef.current.find(n => n.data?.type === 'prompts'),
+        voice: nodesRef.current.find(n => n.data?.type === 'tts' || n.data?.type === 'voiceover')
+      });
+
+      const activeNodes = getNodesByType();
+
+      if (!startFromId) {
+        setNodes(nds => nds.map(n => ({
+          ...n, 
+          data: { ...n.data, status: 'idle', statusMsg: '' }
+        })));
+      }
+
+      const runStep = async (nodeId, label, action, stepForceMock = false) => {
+        if (!nodeId) return true;
+        
+        const node = nodesRef.current.find(n => n.id === nodeId);
+        if (!node) return true;
+
+        if (startFromId && node.data.status === 'success' && nodeId !== startFromId && !stepForceMock) return true;
+
+        setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, status: 'loading' } } : n));
+        
+        try {
+          let result = "";
+          let preview = "";
+
+          if (action === 'extract') {
+            if (startFromId === nodeId && node.data.value) {
+              result = node.data.value;
+            } else {
+              const triggerNode = nodesRef.current.find(n => n.data?.type === 'trigger');
+              if (!triggerNode?.data.value) throw new Error("Falta la URL del video.");
+              result = await fetchYoutubeTranscript(triggerNode.data.value, apiKeys, (msg) => {
+                setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, status: 'loading', statusMsg: msg } } : n));
+              });
+            }
+            preview = result.substring(0, 50) + '...';
+          } 
+          else if (action === 'script') {
+            const transcriptNode = nodesRef.current.find(n => n.data?.type === 'extract');
+            const transcript = transcriptNode?.data.value;
+            if (!transcript) throw new Error("No hay transcripción disponible.");
+            
+            const provider = node.data.params?.aiProvider || 'gemini';
+            
+            if (stepForceMock) {
+              addLog('info', 'Generando guion en modo Demo (Mock)');
+              await new Promise(r => setTimeout(r, 500));
+              result = MOCK_TEXTS.script;
+            } else if (provider === 'chatgpt' && apiKeys.openai) {
+              setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, statusMsg: 'Consultando ChatGPT...' } } : n));
+              const prompt = (node.data.params?.customPrompt || '') + `\n\nGenera un guion documental para YouTube basado en este texto:\n\n${transcript}`;
+              result = await fetchChatGPTContent(prompt, apiKeys.openai, addLog);
+              addLog('success', '¡Guion generado por ChatGPT!');
+            } else if (provider === 'gemini' && apiKeys.gemini) {
+              setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, statusMsg: 'Consultando Google Gemini...' } } : n));
+              const prompt = (node.data.params?.customPrompt || '') + `\n\nGenera un guion documental para YouTube basado en este texto:\n\n${transcript}`;
+              result = await fetchGeminiContent(prompt, apiKeys.gemini, addLog);
+            } else if (provider === 'deepseek' && apiKeys.deepseek) {
+              setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, statusMsg: 'Consultando DeepSeek...' } } : n));
+              addLog('info', 'Consultando DeepSeek API...');
+              const prompt = (node.data.params?.customPrompt || '') + `\n\nGenera un guion documental basado en este texto: ${transcript}`;
+              const resp = await fetch('https://api.deepseek.com/v1/chat/completions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKeys.deepseek}` },
+                body: JSON.stringify({ model: "deepseek-chat", messages: [{ role: "user", content: prompt }] }),
+                signal: AbortSignal.timeout(25000)
+              });
+              if (!resp.ok) {
+                addLog('error', `Fallo de DeepSeek (${resp.status})`, resp.statusText);
+                if (resp.status === 402) throw new Error("Saldo insuficiente en DeepSeek. Recarga o usa Gemini.");
+                throw new Error(`Error de API (${resp.status}): ${resp.statusText}`);
+              }
+              addLog('success', '¡Guion generado por DeepSeek!');
+              const d = await resp.json();
+              result = d.choices[0].message.content;
+            } else if (provider === 'ollama') {
+              setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, statusMsg: 'Consultando Ollama Local...' } } : n));
+              const prompt = (node.data.params?.customPrompt || '') + `\n\nGenera un guion documental para YouTube basado en este texto:\n\n${transcript}`;
+              result = await callOllama(prompt, addLog);
+            } else {
+              addLog('info', 'Generando guion (Fallback Local)');
+              await new Promise(r => setTimeout(r, 1000));
+              result = MOCK_TEXTS.script;
+            }
+            preview = result.substring(0, 40) + '...';
+          }
+          else if (action === 'prompts') {
+            const scriptNode = nodesRef.current.find(n => n.data?.type === 'script');
+            const script = scriptNode?.data.value;
+            if (!script) throw new Error("No hay guion disponible.");
+            
+            const provider = node.data.params?.aiProvider || 'gemini';
+            const basePrompt = `Basándote en este guion, genera prompts visuales detallados en inglés: ${script}`;
+            
+            if (provider === 'chatgpt' && apiKeys.openai) {
+              result = await fetchChatGPTContent(basePrompt, apiKeys.openai, addLog);
+            } else if (provider === 'gemini' && apiKeys.gemini) {
+              result = await fetchGeminiContent(basePrompt, apiKeys.gemini, addLog);
+            } else if (provider === 'ollama') {
+              result = await callOllama(basePrompt, addLog);
+            } else {
+              await new Promise(r => setTimeout(r, 500));
+              result = MOCK_TEXTS.prompts;
+            }
+            preview = result.substring(0, 40) + '...';
+          }
+          else if (action === 'voiceover') {
+            const scriptNode = nodesRef.current.find(n => n.data?.type === 'script');
+            const script = scriptNode?.data.value;
+            if (!script) throw new Error("No hay guion disponible.");
+            
+            setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, statusMsg: 'Sintetizando voz (AI33)...' } } : n));
+            
+            const audioResult = apiKeys.ai33 
+              ? await callAi33TTS(script, apiKeys.ai33, node.data.params, addLog) 
+              : { url: 'mock_audio.mp3', voice: node.data.params?.voice || 'Alvaro', time: '0:45', id: Date.now() };
+            
+            // Si el resultado es exitoso, lo añadimos a la lista de audios del nodo
+            setNodes(nds => nds.map(n => n.id === nodeId ? { 
+              ...n, 
+              data: { 
+                ...n.data, 
+                audios: [audioResult, ...(n.data.audios || [])],
+                value: audioResult.url,
+                valuePreview: `Audio generado (${audioResult.voice || 'Alvaro'})`
+              } 
+            } : n));
+            
+            result = audioResult.url;
+            preview = "Audio generado";
+          }
+
+          setNodes(nds => nds.map(n => n.id === nodeId ? { 
+            ...n, 
+            data: { ...n.data, status: 'success', statusMsg: '', value: result, valuePreview: preview } 
+          } : n));
+          
+          await new Promise(r => setTimeout(r, 100));
+          return true;
+        } catch (err) {
+          setNodes(nds => nds.map(n => n.id === nodeId ? { ...n, data: { ...n.data, status: 'error', statusMsg: err.message } } : n));
+          return false;
+        }
+      };
+
+      const steps = [
+        { id: activeNodes.trigger?.id, label: 'Trigger', action: 'trigger' },
+        { id: activeNodes.extract?.id, label: 'Extracción', action: 'extract' },
+        { id: activeNodes.script?.id, label: 'Guion', action: 'script', forceMock: forceMock },
+        { id: activeNodes.prompts?.id, label: 'Prompts', action: 'prompts' },
+        { id: activeNodes.voice?.id, label: 'Voz', action: 'voiceover' }
+      ].filter(s => s.id);
+
+      for (const step of steps) {
+        if (startFromId) {
+          const curIdx = steps.findIndex(s => s.id === step.id);
+          const stIdx = steps.findIndex(s => s.id === startFromId);
+          if (curIdx < stIdx) continue;
+        }
+        const success = await runStep(step.id, step.label, step.action, step.forceMock);
+        if (!success) break;
+      }
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const handleReset = () => {
+    setNodes(initialNodes.map(n => ({ ...n, data: { ...n.data, status: 'idle' } })));
+    setEdges(initialEdges);
+    setSelectedNodeId(null);
+    setIsRunning(false);
+  };
+
+  const selectedNode = useMemo(() => {
+    return nodes.find(n => n.id === selectedNodeId);
+  }, [nodes, selectedNodeId]);
+
+  // Aplastar la clase animation en edges cuando corre
+  const stylizedEdges = useMemo(() => {
+    return edges.map(edge => ({
+      ...edge,
+      className: isRunning ? 'edge-running' : ''
+    }));
+  }, [edges, isRunning]);
+
+  const nodeTypes = useMemo(() => ({
+    custom: (props) => <CustomNode {...props} onRunFlow={(id, force) => handleRunFlow(id, force)} onDeleteNode={handleDeleteNode} />
+  }), [handleRunFlow]);
+
+  return (
+    <div className="w-full h-full relative" style={{ background: '#0F0F11' }}>
+      {/* Navbar Minimalista */}
+      <div className="absolute top-4 left-4 right-4 h-16 z-50 flex items-center justify-between px-6 glass rounded-2xl">
+        <div className="flex items-center gap-3">
+          <div className="bg-indigo-500/20 text-indigo-600 p-2 rounded-xl">
+            <Sparkles size={20} />
+          </div>
+          <h1 className="text-black font-semibold text-lg tracking-tight">Niche<span className="font-light text-app-muted"> Flow</span></h1>
+        </div>
+        
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => setShowLibrary(!showLibrary)}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl transition-colors text-sm font-medium border",
+              showLibrary ? "bg-white/10 border-white/20 text-black" : "text-app-text border-transparent hover:text-black hover:bg-white/5"
+            )}
+          >
+            <List size={16} />
+            Librería
+          </button>
+ 
+          <button 
+            onClick={handleReset}
+            className="flex items-center gap-2 px-4 py-2 rounded-xl text-app-text hover:text-black hover:bg-white/5 transition-colors text-sm font-medium"
+          >
+            <RotateCcw size={16} />
+            Limpiar
+          </button>
+          
+          <button 
+            onClick={() => setShowApiModal(true)}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-xl transition-colors text-sm font-medium border",
+              (apiKeys.deepseek || apiKeys.ai33 || apiKeys.pexels || apiKeys.openai) 
+                ? "bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20" 
+                : "text-app-text border-transparent hover:text-black hover:bg-white/5"
+            )}
+          >
+            <Key size={16} />
+            APIs
+          </button>
+ 
+          <button className="flex items-center gap-2 px-4 py-2 rounded-xl text-app-text hover:text-black hover:bg-white/5 transition-colors text-sm font-medium border border-transparent hover:border-gray-300">
+            <Save size={16} />
+            Guardar
+          </button>
+ 
+          <button 
+            onClick={() => handleRunFlow()}
+            className={cn(
+              "flex items-center gap-2 px-5 py-2.5 rounded-xl text-white text-sm font-semibold transition-all shadow-lg",
+              isRunning 
+                ? "bg-emerald-500/50 cursor-not-allowed border border-emerald-500/30" 
+                : "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/20 active:scale-95"
+            )}
+            disabled={isRunning}
+          >
+            {isRunning ? (
+              <>
+                 <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                 Procesando...
+              </>
+            ) : (
+              <>
+                 <Play size={16} fill="currentColor" />
+                 Ejecutar Flujo
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+ 
+      {/* Main Canvas Area */}
+      <ReactFlow
+        nodes={nodes}
+        edges={stylizedEdges}
+        nodeTypes={nodeTypes}
+        onNodesChange={onNodesChange}
+        onEdgesChange={onEdgesChange}
+        onConnect={onConnect}
+        onNodeClick={onNodeClick}
+        onPaneClick={onPaneClick}
+        fitView
+        fitViewOptions={{ padding: 0.2 }}
+        className="w-full h-full bg-transparent"
+      >
+        <Background gap={24} size={2} color="#dadce0" opacity={1} />
+        <Controls 
+          className="glass border-gray-300 rounded-xl overflow-hidden fill-app-muted text-app-muted [&>button]:bg-transparent [&>button]:border-gray-300 hover:[&>button]:bg-white/10" 
+          position="bottom-left" 
+        />
+      </ReactFlow>
+
+      {/* Sidebar Overlay */}
+      {selectedNode && (
+        <Sidebar 
+          node={selectedNode} 
+          nodes={nodes}
+          onClose={() => setSelectedNodeId(null)}
+          onUpdateNode={handleUpdateNode}
+          onDeleteNode={handleDeleteNode}
+          apiKeys={apiKeys}
+          onRunFlow={handleRunFlow}
+        />
+      )}
+
+      {/* Global API Modal */}
+      <ApiModal 
+        isOpen={showApiModal} 
+        onClose={() => setShowApiModal(false)}
+        apiKeys={apiKeys}
+        setApiKeys={setApiKeys}
+      />
+
+      {/* Node Library Side Panel */}
+      {/* System Logs Panel */}
+      <div className={cn(
+        "fixed bottom-4 left-6 z-[60] flex flex-col transition-all duration-300",
+        showLogs ? "w-[400px]" : "w-12 h-12 overflow-hidden"
+      )}>
+        {showLogs ? (
+          <div className="glass rounded-2xl border border-gray-300 flex flex-col h-[300px] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-4">
+            <div className="h-12 border-b border-gray-200 px-4 flex items-center justify-between bg-white/5">
+               <div className="flex items-center gap-2">
+                 <Terminal size={14} className="text-app-muted" />
+                 <span className="text-xs font-bold text-black uppercase tracking-widest">Logs de Red</span>
+               </div>
+               <button onClick={() => setShowLogs(false)} className="p-1 hover:bg-white/10 rounded-lg text-app-muted transition-colors">
+                 <X size={14} />
+               </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-3 space-y-2 font-mono scrollbar-hide">
+               {systemLogs.map(log => (
+                 <div key={log.id} className="text-[10px] space-y-0.5 border-b border-gray-200 pb-1">
+                    <div className={cn(
+                      "font-bold uppercase tracking-tight",
+                      log.type === 'error' ? 'text-red-600' : log.type === 'success' ? 'text-emerald-600' : 'text-blue-400'
+                    )}>
+                      {log.type} » {log.msg}
+                    </div>
+                    {log.details && <div className="text-app-muted opacity-60 leading-tight">{log.details}</div>}
+                 </div>
+               ))}
+            </div>
+          </div>
+        ) : (
+          <button 
+            onClick={() => setShowLogs(true)}
+            className="w-12 h-12 glass rounded-2xl flex items-center justify-center border border-gray-300 hover:bg-indigo-500/20 text-indigo-600 transition-all shadow-lg hover:scale-105"
+            title="Ver Logs de Red"
+          >
+            <Terminal size={20} />
+          </button>
+        )}
+      </div>
+
+      <NodeLibrary 
+        isOpen={showLibrary} 
+        onAddNode={handleAddNode} 
+      />
+    </div>
+  );
+}
+
+// Render the application into #root
+const root = document.getElementById('root');
+if (root) {
+  createRoot(root).render(
+    <ReactFlowProvider>
+      <VisualFlowApp />
+    </ReactFlowProvider>
+  );
+}
+
+</script>
+</body>
+</html>
+
+
+
+
