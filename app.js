@@ -517,13 +517,14 @@ if (fetchUrlBtn && canalUrlInput) {
     fetchUrlBtn.disabled = true;
     
     try {
-      const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+      // Usamos un proxy diferente que devuelve el HTML crudo y es menos propenso a bloqueos
+      const proxyUrl = `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`;
       const res = await fetch(proxyUrl);
-      const data = await res.json();
-      if (!data.contents) throw new Error('No content');
+      const htmlText = await res.text();
+      if (!htmlText) throw new Error('No content');
       
       const parser = new DOMParser();
-      const doc = parser.parseFromString(data.contents, 'text/html');
+      const doc = parser.parseFromString(htmlText, 'text/html');
       
       const titleMeta = doc.querySelector('meta[property="og:title"]');
       const imageMeta = doc.querySelector('meta[property="og:image"]');
