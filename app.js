@@ -32,7 +32,15 @@ window.openTool = function(toolId) {
   const iframe = document.getElementById('toolIframe');
   const title = document.getElementById('toolOverlayTitle');
   title.textContent = tool.title;
-  iframe.src = 'data:text/html;base64,' + tool.base64;
+  
+  const binaryStr = window.atob(tool.base64);
+  const bytes = new Uint8Array(binaryStr.length);
+  for (let i = 0; i < binaryStr.length; i++) {
+      bytes[i] = binaryStr.charCodeAt(i);
+  }
+  iframe.removeAttribute('src');
+  iframe.srcdoc = new TextDecoder('utf-8').decode(bytes);
+
   overlay.classList.add('active');
   document.body.style.overflow = 'hidden';
 };
@@ -1756,4 +1764,5 @@ async function loadFriends() {
       </div>`;
   }).join('');
 }
+
 
