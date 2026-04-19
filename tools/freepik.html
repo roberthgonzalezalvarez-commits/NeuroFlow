@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Generador Freepik AI</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root,[data-theme="light"]{
+  --bg:#f8f9fa;--surface:#ffffff;--surface2:#f1f3f4;--offset:#e8eaed;
+  --border:#e0e0e0;--divider:#dadce0;
+  --text:#202124;--muted:#5f6368;--faint:#80868b;
+  --primary:#1a73e8;--primary-h:#1557b0;--primary-hl:#e8f0fe;
+  --success:#34a853;--error:#d93025;--orange:#f9ab00;
+  --sh-sm:0 1px 3px rgba(0,0,0,.08);--sh-md:0 2px 8px rgba(0,0,0,.12);--sh-lg:0 8px 24px rgba(0,0,0,.15);
+  --r-sm:8px;--r-md:12px;--r-lg:16px;--r-xl:24px;--r-full:9999px;
+  --ease:160ms cubic-bezier(.16,1,.3,1);
+  --font:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+  --xs:clamp(.75rem,.7rem+.25vw,.875rem);--sm:clamp(.875rem,.8rem+.35vw,1rem);
+  --base:clamp(1rem,.95rem+.25vw,1.125rem);--lg:clamp(1.125rem,1rem+.75vw,1.5rem);
+  --s1:.25rem;--s2:.5rem;--s3:.75rem;--s4:1rem;--s5:1.25rem;--s6:1.5rem;
+  --s8:2rem;--s10:2.5rem;--s12:3rem;--s16:4rem;
+}
+[data-theme="dark"]{
+  --bg:#000000;--surface:#1c1c1e;--surface2:#2c2c2e;--offset:#3a3a3c;
+  --border:#38383a;--divider:#2c2c2e;
+  --text:#f5f5f7;--muted:#a1a1a6;--faint:#86868b;
+  --primary:#1a73e8;--primary-h:#4285f4;--primary-hl:rgba(26,115,232,0.2);
+  --success:#34a853;--error:#ea4335;--orange:#f9ab00;
+  --sh-sm:0 1px 3px rgba(0,0,0,.4);--sh-md:0 2px 8px rgba(0,0,0,.5);--sh-lg:0 8px 24px rgba(0,0,0,.6);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
+body{font-family:var(--font);font-size:var(--base);color:var(--text);background:var(--bg);min-height:100dvh;line-height:1.6;transition:background var(--ease),color var(--ease)}
+img,video{display:block;max-width:100%}
+button{cursor:pointer;border:none;background:none;font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--primary);outline-offset:3px;border-radius:var(--r-sm)}
+.app{display:flex;flex-direction:column;min-height:100dvh}
+
+/* TOPBAR */
+.topbar{position:sticky;top:0;z-index:100;background:var(--surface);border-bottom:1px solid var(--border);padding:var(--s4) var(--s6);display:flex;align-items:center;gap:var(--s4);backdrop-filter:blur(12px)}
+.logo{display:flex;align-items:center;gap:var(--s2);font-size:var(--sm);font-weight:700;color:var(--text);white-space:nowrap}
+.logo svg{color:var(--primary);flex-shrink:0}
+.search-bar{flex:1;display:flex;gap:var(--s2);max-width:680px;margin-inline:auto}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:var(--s2);padding:var(--s3) var(--s5);border-radius:var(--r-lg);font-size:var(--sm);font-weight:600;transition:background var(--ease),box-shadow var(--ease),transform var(--ease)}
+.btn:active{transform:scale(.97)}
+.btn-p{background:var(--primary);color:#fff}
+.btn-p:hover{background:var(--primary-h);box-shadow:var(--sh-sm)}
+.btn-g{background:transparent;color:var(--muted);border:1px solid var(--border)}
+.btn-g:hover{background:var(--offset);color:var(--text)}
+.tbtn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--muted);transition:background var(--ease),color var(--ease)}
+.tbtn:hover{background:var(--offset);color:var(--text)}
+.topbar-right{display:flex;align-items:center;gap:var(--s2);margin-left:auto}
+
+/* MAIN */
+.main{flex:1;padding:var(--s6)}
+.box{max-width:960px;margin-inline:auto;display:flex;flex-direction:column;gap:var(--s6)}
+
+/* BANNER */
+.banner{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s6);display:flex;flex-direction:column;gap:var(--s4)}
+.banner h2{font-size:var(--lg);font-weight:700}
+.banner p{font-size:var(--sm);color:var(--muted);max-width:65ch}
+.arow{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:flex-end}
+.af{display:flex;flex-direction:column;gap:var(--s1);flex:1;min-width:240px}
+.af label{font-size:var(--xs);color:var(--muted);font-weight:600}
+.ainput{padding:var(--s3);background:var(--offset);border:1px solid var(--border);border-radius:var(--r-md);font-size:var(--sm);color:var(--text);font-family:var(--mono);outline:none;transition:border-color var(--ease)}
+.ainput:focus{border-color:var(--primary)}
+.ahelp{font-size:var(--xs);color:var(--faint)}
+.ahelp a{color:var(--primary)}
+
+/* TOOL UI */
+.tool-ui{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s6);display:flex;flex-direction:column;gap:var(--s5);box-shadow:var(--sh-sm)}
+.prompt-area{display:flex;flex-direction:column;gap:var(--s2)}
+.prompt-area label{font-size:var(--sm);font-weight:600;color:var(--text)}
+.pinput{width:100%;height:120px;padding:var(--s4);background:var(--offset);border:1px solid var(--border);border-radius:var(--r-md);font-size:var(--sm);color:var(--text);outline:none;transition:border-color var(--ease),background var(--ease);resize:vertical;font-family:var(--font)}
+.pinput:focus{border-color:var(--primary);background:var(--surface2)}
+.pinput::placeholder{color:var(--faint)}
+
+.settings-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--s4)}
+.set-grp{display:flex;flex-direction:column;gap:var(--s2)}
+.set-grp label{font-size:var(--xs);font-weight:600;color:var(--muted)}
+.sel{padding:var(--s3);background:var(--offset);border:1px solid var(--border);border-radius:var(--r-md);font-size:var(--sm);color:var(--text);cursor:pointer;outline:none;transition:border-color var(--ease)}
+.sel:focus{border-color:var(--primary)}
+
+.gen-btn{width:100%;padding:var(--s4);font-size:var(--base);margin-top:var(--s2)}
+
+/* RESULT GALLERY */
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:var(--s5)}
+.card{background:var(--surface);border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--border);box-shadow:var(--sh-md);display:flex;flex-direction:column;position:relative}
+.card-img{aspect-ratio:1/1;width:100%;background:var(--offset);position:relative;display:flex;align-items:center;justify-content:center}
+.card-img img{width:100%;height:100%;object-fit:cover;cursor:pointer}
+.card-info{padding:var(--s4);display:flex;flex-direction:column;gap:var(--s3)}
+.card-prompt{font-size:var(--xs);color:var(--muted);display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.card-meta{display:flex;justify-content:space-between;align-items:center}
+.card-badge{font-size:10px;font-weight:700;background:var(--surface2);padding:4px 8px;border-radius:var(--r-sm);color:var(--text)}
+.dl-btn{padding:var(--s2) var(--s4);background:var(--primary);color:white;border-radius:var(--r-full);font-size:var(--xs);font-weight:600;display:inline-flex;align-items:center;gap:var(--s1);transition:background var(--ease)}
+.dl-btn:hover{background:var(--primary-h)}
+
+/* LOADER OVERLAY */
+.loader-overlay{position:absolute;inset:0;background:rgba(255,255,255,0.8);backdrop-filter:blur(4px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:var(--s3);z-index:2}
+[data-theme="dark"] .loader-overlay{background:rgba(0,0,0,0.8)}
+.spinner{width:32px;height:32px;border:3px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin 1s linear infinite}
+.loader-text{font-size:var(--xs);font-weight:600;color:var(--text);letter-spacing:1px}
+
+/* TOAST */
+.toasts{position:fixed;bottom:var(--s6);right:var(--s6);display:flex;flex-direction:column;gap:var(--s2);z-index:999;pointer-events:none}
+.toast{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s3) var(--s4);box-shadow:var(--sh-lg);font-size:var(--sm);display:flex;align-items:flex-start;gap:var(--s2);animation:tin .25s cubic-bezier(.16,1,.3,1) forwards;pointer-events:auto;max-width:360px}
+.toast.ok{border-color:rgba(67,122,34,.4)}
+.toast.err{border-color:rgba(161,44,123,.4)}
+@keyframes tin{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes tout{to{opacity:0;transform:translateX(20px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+@media(max-width:640px){
+  .topbar{padding:var(--s3) var(--s4);gap:var(--s2)}
+  .logo span{display:none}
+  .main{padding:var(--s4)}
+  .toasts{left:var(--s4);right:var(--s4)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header class="topbar">
+  <div class="logo">
+    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+      <circle cx="8.5" cy="8.5" r="1.5"></circle>
+      <polyline points="21 15 16 10 5 21"></polyline>
+    </svg>
+    <span>Freepik Generator</span>
+  </div>
+  <div class="topbar-right">
+    <button class="tbtn" id="keyBtn" title="Configurar API Key">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+    </button>
+    <button class="tbtn" id="themeBtn" aria-label="Tema">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</header>
+
+<main class="main">
+<div class="box">
+
+  <!-- BANNER API KEY -->
+  <div class="banner" id="apiBanner">
+    <h2>🔑 Configura tu API Key de Freepik</h2>
+    <p>Para usar la generación de alta calidad (Mystic) o Rápida (Flux), necesitas una API clave configurada por desarrollador.</p>
+    <div class="arow">
+      <div class="af">
+        <label for="fpKey">Freepik API Key</label>
+        <input class="ainput" id="fpKey" type="password" placeholder="FPSX... pega tu key aquí">
+        <span class="ahelp">Obténla en el panel de desarrolladores de Freepik.</span>
+      </div>
+      <button class="btn btn-p" id="saveKeys">Guardar Key →</button>
+    </div>
+    <p style="font-size:var(--xs);color:var(--faint)">🔒 Tu key se guarda solo de forma local en tu navegador usando localStorage.</p>
+  </div>
+
+  <!-- TOOL UI -->
+  <div class="tool-ui" id="toolUi" style="display:none">
+    <div class="prompt-area">
+      <label for="prompt">¿Qué quieres generar?</label>
+      <textarea id="prompt" class="pinput" placeholder="Describe tu imagen con detalles. Ej: Un astronauta relajándose en un sofá en la luna, tomando un café, iluminación cinematográfica, 8k, hiperrealista..."></textarea>
+    </div>
+    
+    <div class="settings-grid">
+      <div class="set-grp">
+        <label>Aspect Ratio (Proporción)</label>
+        <select id="aspect" class="sel">
+          <option value="square">Cuadrado (1:1)</option>
+          <option value="landscape">Pantalla Ancha (16:9)</option>
+          <option value="portrait">Retrato (9:16)</option>
+        </select>
+      </div>
+      <div class="set-grp">
+        <label>Modelo IA</label>
+        <select id="model" class="sel">
+          <option value="mystic">Freepik Mystic (Máxima Calidad)</option>
+          <option value="flux">Flux.1 Schnell (Rápido)</option>
+        </select>
+      </div>
+    </div>
+
+    <button id="generateBtn" class="btn btn-p gen-btn">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+      Generar Imagen
+    </button>
+  </div>
+
+  <!-- GALLERY -->
+  <h3 id="galleryTitle" style="font-size:var(--lg);font-weight:700;display:none;margin-top:var(--s4)">Creados Recientemente</h3>
+  <div class="gallery" id="gallery"></div>
+
+</div>
+</main>
+</div>
+
+<div class="toasts" id="TW"></div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────
+const S = {
+  key: localStorage.getItem('fpKey')||'',
+  requests: [] 
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+  if (S.key) {
+    document.getElementById('fpKey').value = S.key;
+    document.getElementById('apiBanner').style.display = 'none';
+    document.getElementById('toolUi').style.display = 'flex';
+  }
+});
+
+// ── THEME ──────────────────────────────────────────────────
+let theme='light';
+const root=document.documentElement;
+document.getElementById('themeBtn').addEventListener('click',()=>{
+  theme=theme==='dark'?'light':'dark';
+  root.setAttribute('data-theme',theme);
+  document.getElementById('themeBtn').innerHTML=theme==='dark'
+    ?'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>'
+    :'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+});
+
+// ── TOAST ──────────────────────────────────────────────────
+function toast(msg,type='ok',ms=4500){
+  const w=document.getElementById('TW'),t=document.createElement('div');
+  t.className=\`toast \${type}\`;
+  t.innerHTML=type==='ok'?\`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#437a22" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg><span>\${msg}</span>\`:\`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a12c7b" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg><span>\${msg}</span>\`;
+  w.appendChild(t);
+  setTimeout(()=>{t.style.animation='tout .2s ease forwards';setTimeout(()=>t.remove(),200);},ms);
+}
+
+// ── KEYS ──────────────────────────────────────────────────
+document.getElementById('saveKeys').addEventListener('click',()=>{
+  S.key=document.getElementById('fpKey').value.trim();
+  if(!S.key){toast('Ingresa la API key','err');return;}
+  localStorage.setItem('fpKey', S.key);
+  document.getElementById('apiBanner').style.display='none';
+  document.getElementById('toolUi').style.display='flex';
+  toast('¡Key guardada! Puedes generar imágenes.');
+});
+document.getElementById('keyBtn').addEventListener('click',()=>{
+  document.getElementById('apiBanner').style.display='flex';
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+
+// ── GENERATION & POLLING ──────────────────────────────────
+document.getElementById('generateBtn').addEventListener('click', async () => {
+  const prompt = document.getElementById('prompt').value.trim();
+  if (!prompt) {
+    toast('Escribe un prompt para generar', 'err');
+    return;
+  }
+  const model = document.getElementById('model').value; // 'mystic' or 'flux'
+  const aspect = document.getElementById('aspect').value; // 'square', 'landscape', 'portrait'
+  
+  const payload = { prompt };
+  
+  let endpoint = '';
+  if (model === 'mystic') {
+    endpoint = 'https://api.freepik.com/v1/ai/mystic';
+    payload.image = { size: aspect };
+  } else {
+    // According to Freepik docs for Flux 1 Schnell
+    endpoint = 'https://api.freepik.com/v1/ai/text-to-image/flux-1-schnell';
+    payload.image = { size: aspect }; 
+  }
+
+  const cardId = 'card_' + Date.now();
+  addPlaceholderCard(cardId, prompt, model, aspect);
+  document.getElementById('galleryTitle').style.display = 'block';
+
+  try {
+    const res = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'x-freepik-api-key': S.key
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      let b = await res.text();
+      try{b=JSON.parse(b).message||b}catch(e){}
+      throw new Error(\`HTTP \${res.status}: \${b}\`);
+    }
+
+    const data = await res.json();
+    const taskId = data.task_id;
+
+    if (!taskId && !data.data && !data.url) {
+       // Freepik text-to-image sometimes returns data directly if not mystic
+       throw new Error("No se obtuvo task_id o imagen directa de la API");
+    }
+
+    if (taskId) {
+        pollTask(taskId, cardId, prompt);
+    } else {
+        // Synchronous generation logic fallback
+        if(data.data && data.data[0] && data.data[0].url) {
+           finishCard(cardId, data.data[0].url);
+           toast("¡Imagen generada con éxito!");
+        } else if (data.url) {
+           finishCard(cardId, data.url);
+           toast("¡Imagen generada con éxito!");
+        } else if (data.base64) {
+            finishCard(cardId, 'data:image/jpeg;base64,' + data.base64);
+            toast("¡Imagen generada con éxito!");
+        }
+    }
+
+  } catch (err) {
+    console.error(err);
+    toast(err.message, 'err');
+    setCardError(cardId, "Error al enviar la petición");
+  }
+});
+
+async function pollTask(taskId, cardId, prompt) {
+  let attempts = 0;
+  const maxAttempts = 30; // up to 1.5 min
+  let interval = setInterval(async () => {
+    attempts++;
+    try {
+      const res = await fetch(\`https://api.freepik.com/v1/ai/tasks/\${taskId}\`, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'x-freepik-api-key': S.key
+        }
+      });
+
+      if (!res.ok) {
+         if (res.status === 401) throw new Error("API Key inválida");
+         console.warn("Polling request no ok", res.status);
+         return; // wait for next interval
+      }
+      
+      const data = await res.json();
+      const st = (data.status || '').toUpperCase();
+      
+      if (st === 'COMPLETED' || data.has_result) {
+        clearInterval(interval);
+        
+        let imgUrl = '';
+        if (data.data && data.data[0]?.url) imgUrl = data.data[0].url;
+        else if (data.data && data.data[0]?.base64) imgUrl = 'data:image/jpeg;base64,' + data.data[0].base64;
+        else if (data.image && data.image.url) imgUrl = data.image.url;
+        else if (data.result && data.result.image && data.result.image.url) imgUrl = data.result.image.url;
+        else if (data.result && data.result.url) imgUrl = data.result.url;
+        else if (data.result && data.result.base64) imgUrl = 'data:image/jpeg;base64,' + data.result.base64;
+        
+        if (imgUrl) {
+          finishCard(cardId, imgUrl);
+          toast("¡Imagen generada con éxito!");
+        } else {
+           console.log("Freepik result format:", data);
+           throw new Error("No se encontró la URL de la imagen en la respuesta.");
+        }
+      } else if (st === 'FAILED') {
+        clearInterval(interval);
+        throw new Error(data.error || "La tarea falló en el servidor");
+      }
+      
+      if (attempts >= maxAttempts) {
+        clearInterval(interval);
+        throw new Error("Tiempo de espera agotado.");
+      }
+    } catch (e) {
+      clearInterval(interval);
+      setCardError(cardId, e.message);
+      toast(e.message, 'err');
+    }
+  }, 3000);
+}
+
+// ── UI HELPERS ────────────────────────────────────────────
+function addPlaceholderCard(id, prompt, model, aspect) {
+  const g = document.getElementById('gallery');
+  const arClass = aspect === 'portrait' ? 'style="aspect-ratio:3/4"' : aspect === 'landscape' ? 'style="aspect-ratio:16/9"' : '';
+  const html = \`
+  <div class="card" id="\${id}">
+    <div class="card-img" \${arClass}>
+      <div class="loader-overlay" id="loader_\${id}">
+        <div class="spinner"></div>
+        <div class="loader-text">Generando...</div>
+      </div>
+    </div>
+    <div class="card-info">
+      <div class="card-meta">
+        <span class="card-badge">\${model.toUpperCase()}</span>
+      </div>
+      <div class="card-prompt" title="\${prompt.replace(/"/g, '&quot;')}">\${prompt}</div>
+    </div>
+  </div>\`;
+  g.insertAdjacentHTML('afterbegin', html);
+}
+
+function finishCard(id, imgUrl) {
+  const card = document.getElementById(id);
+  if (!card) return;
+  const overlay = card.querySelector('.loader-overlay');
+  if (overlay) overlay.style.display = 'none';
+  
+  const imgCont = card.querySelector('.card-img');
+  const img = document.createElement('img');
+  img.src = imgUrl;
+  img.onclick = () => window.open(imgUrl, '_blank');
+  imgCont.appendChild(img);
+
+  const info = card.querySelector('.card-meta');
+  const btn = document.createElement('button');
+  btn.className = 'dl-btn';
+  btn.innerHTML = \`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> Descargar\`;
+  btn.onclick = async () => {
+    try {
+      const res = await fetch('https://corsproxy.io/?' + encodeURIComponent(imgUrl));
+      if (!res.ok) throw new Error('Proxy falló');
+      const blob = await res.blob();
+      const burl = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = burl;
+      a.download = \`freepik_ai_\${Date.now()}.jpg\`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      setTimeout(()=>URL.revokeObjectURL(burl), 1000);
+    } catch(e) {
+      window.open(imgUrl, '_blank');
+    }
+  };
+  info.appendChild(btn);
+}
+
+function setCardError(id, msg) {
+  const card = document.getElementById(id);
+  if (!card) return;
+  const overlay = card.querySelector('.loader-overlay');
+  if (overlay) {
+    overlay.innerHTML = \`<div style="color:var(--error);text-align:center;padding:1rem"><svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin:0 auto"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg><div style="font-size:12px;margin-top:8px;font-weight:600">Error: \${msg}</div></div>\`;
+  }
+}
+
+</script>
+</body>
+</html>

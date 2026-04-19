@@ -1499,6 +1499,10 @@ select:focus { border-color: var(--primary); }
   background: linear-gradient(135deg, #6366f1, #818cf8);
   box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
 }
+.tool-icon-purple {
+  background: linear-gradient(135deg, #9333ea, #a855f7);
+  box-shadow: 0 4px 12px rgba(147, 51, 234, 0.3);
+}
 
 .tool-dev-badge {
   position: absolute;
@@ -1640,10 +1644,4 @@ select:focus { border-color: var(--primary); }
   .tools-grid { grid-template-columns: 1fr; }
   .tool-card { padding: 16px; }
   .tool-overlay-header { padding: 8px 12px; }
-}
-
-/* Spin animation for loading */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
 }

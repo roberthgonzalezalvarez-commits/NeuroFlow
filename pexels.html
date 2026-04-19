@@ -1,0 +1,764 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Clip Downloader — Pexels & Pixabay</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root,[data-theme="light"]{
+  --bg:#f8f9fa;--surface:#ffffff;--surface2:#f1f3f4;--offset:#e8eaed;
+  --border:#e0e0e0;--divider:#dadce0;
+  --text:#202124;--muted:#5f6368;--faint:#80868b;
+  --primary:#1a73e8;--primary-h:#1557b0;--primary-hl:#e8f0fe;
+  --success:#34a853;--error:#d93025;--orange:#f9ab00;
+  --sh-sm:0 1px 3px rgba(0,0,0,.08);--sh-md:0 2px 8px rgba(0,0,0,.12);--sh-lg:0 8px 24px rgba(0,0,0,.15);
+  --r-sm:8px;--r-md:12px;--r-lg:16px;--r-xl:24px;--r-full:9999px;
+  --ease:160ms cubic-bezier(.16,1,.3,1);
+  --font:'Inter',sans-serif;--mono:'JetBrains Mono',monospace;
+  --xs:clamp(.75rem,.7rem+.25vw,.875rem);--sm:clamp(.875rem,.8rem+.35vw,1rem);
+  --base:clamp(1rem,.95rem+.25vw,1.125rem);--lg:clamp(1.125rem,1rem+.75vw,1.5rem);
+  --s1:.25rem;--s2:.5rem;--s3:.75rem;--s4:1rem;--s5:1.25rem;--s6:1.5rem;
+  --s8:2rem;--s10:2.5rem;--s12:3rem;--s16:4rem;
+}
+[data-theme="dark"]{
+  --bg:#000000;--surface:#1c1c1e;--surface2:#2c2c2e;--offset:#3a3a3c;
+  --border:#38383a;--divider:#2c2c2e;
+  --text:#f5f5f7;--muted:#a1a1a6;--faint:#86868b;
+  --primary:#1a73e8;--primary-h:#4285f4;--primary-hl:rgba(26,115,232,0.2);
+  --success:#34a853;--error:#ea4335;--orange:#f9ab00;
+  --sh-sm:0 1px 3px rgba(0,0,0,.4);--sh-md:0 2px 8px rgba(0,0,0,.5);--sh-lg:0 8px 24px rgba(0,0,0,.6);
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
+body{font-family:var(--font);font-size:var(--base);color:var(--text);background:var(--bg);min-height:100dvh;line-height:1.6;transition:background var(--ease),color var(--ease)}
+img,video{display:block;max-width:100%}
+button{cursor:pointer;border:none;background:none;font:inherit;color:inherit}
+a{color:inherit;text-decoration:none}
+:focus-visible{outline:2px solid var(--primary);outline-offset:3px;border-radius:var(--r-sm)}
+.app{display:flex;flex-direction:column;min-height:100dvh}
+
+/* TOPBAR */
+.topbar{position:sticky;top:0;z-index:100;background:var(--surface);border-bottom:1px solid var(--border);padding:var(--s4) var(--s6);display:flex;align-items:center;gap:var(--s4);backdrop-filter:blur(12px)}
+.logo{display:flex;align-items:center;gap:var(--s2);font-size:var(--sm);font-weight:700;color:var(--text);white-space:nowrap}
+.logo svg{color:var(--primary);flex-shrink:0}
+.search-bar{flex:1;display:flex;gap:var(--s2);max-width:680px;margin-inline:auto}
+.swrap{flex:1;position:relative}
+.swrap svg{position:absolute;left:var(--s3);top:50%;transform:translateY(-50%);color:var(--muted);pointer-events:none}
+.sinput{width:100%;padding:var(--s3) var(--s3) var(--s3) calc(var(--s3)*2 + 18px);background:var(--offset);border:1px solid var(--border);border-radius:var(--r-full);font-size:var(--sm);color:var(--text);transition:border-color var(--ease),box-shadow var(--ease),background var(--ease);outline:none}
+.sinput::placeholder{color:var(--faint)}
+.sinput:focus{border-color:var(--primary);box-shadow:0 0 0 3px var(--primary-hl);background:var(--surface2)}
+.btn{display:inline-flex;align-items:center;gap:var(--s2);padding:var(--s3) var(--s5);border-radius:var(--r-full);font-size:var(--sm);font-weight:600;transition:background var(--ease),box-shadow var(--ease),transform var(--ease)}
+.btn:active{transform:scale(.97)}
+.btn-p{background:var(--primary);color:#fff}
+.btn-p:hover{background:var(--primary-h);box-shadow:var(--sh-sm)}
+.btn-g{background:transparent;color:var(--muted);border:1px solid var(--border)}
+.btn-g:hover{background:var(--offset);color:var(--text)}
+.btn-sm{padding:var(--s2) var(--s3);font-size:var(--xs);border-radius:var(--r-md)}
+.tbtn{width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:var(--r-md);color:var(--muted);transition:background var(--ease),color var(--ease)}
+.tbtn:hover{background:var(--offset);color:var(--text)}
+.topbar-right{display:flex;align-items:center;gap:var(--s2);margin-left:auto}
+
+/* PROGRESS */
+.pbar-wrap{height:3px;width:100%;background:var(--border);display:none}
+.pbar-wrap.on{display:block}
+.pbar{height:100%;background:var(--primary);border-radius:var(--r-full);transition:width .3s ease}
+
+/* CONTROLS */
+.ctrl{background:var(--surface);border-bottom:1px solid var(--border);padding:var(--s3) var(--s6);display:flex;align-items:center;gap:var(--s4);flex-wrap:wrap}
+.ctrl label{font-size:var(--xs);color:var(--muted);font-weight:500;white-space:nowrap}
+.sel{padding:var(--s2) var(--s3);background:var(--offset);border:1px solid var(--border);border-radius:var(--r-md);font-size:var(--xs);color:var(--text);cursor:pointer;outline:none;transition:border-color var(--ease)}
+.sel:focus{border-color:var(--primary)}
+.fmt-group{display:flex;gap:2px;background:var(--offset);border-radius:var(--r-md);padding:3px;border:1px solid var(--border)}
+.fmt-btn{padding:var(--s1) var(--s2);border-radius:calc(var(--r-md) - 3px);color:var(--muted);transition:all var(--ease);display:flex;align-items:center;justify-content:center}
+.fmt-btn.on{background:var(--surface2);color:var(--text);box-shadow:0 0 0 1.5px var(--primary)}
+.fmt-btn:hover:not(.on){color:var(--text)}
+.tabs{display:flex;gap:var(--s1);background:var(--offset);border-radius:var(--r-md);padding:3px}
+.tab{padding:var(--s1) var(--s3);border-radius:calc(var(--r-md) - 3px);font-size:var(--xs);font-weight:600;color:var(--muted);transition:background var(--ease),color var(--ease)}
+.tab.on{background:var(--surface2);color:var(--text);box-shadow:var(--sh-sm)}
+.tab:hover:not(.on){color:var(--text)}
+.bulk{margin-left:auto;display:flex;align-items:center;gap:var(--s3)}
+.badge{font-size:var(--xs);font-weight:700;background:var(--primary);color:#fff;border-radius:var(--r-full);padding:2px var(--s2);min-width:22px;text-align:center}
+
+/* MAIN */
+.main{flex:1;padding:var(--s6)}
+.box{max-width:1280px;margin-inline:auto}
+
+/* BANNER */
+.banner{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s6);margin-bottom:var(--s6);display:flex;flex-direction:column;gap:var(--s4)}
+.banner h2{font-size:var(--lg);font-weight:700}
+.banner p{font-size:var(--sm);color:var(--muted);max-width:65ch}
+.arow{display:flex;flex-wrap:wrap;gap:var(--s3);align-items:flex-end}
+.af{display:flex;flex-direction:column;gap:var(--s1);flex:1;min-width:240px}
+.af label{font-size:var(--xs);color:var(--muted);font-weight:600}
+.ainput{padding:var(--s3);background:var(--offset);border:1px solid var(--border);border-radius:var(--r-md);font-size:var(--sm);color:var(--text);font-family:var(--mono);outline:none;transition:border-color var(--ease)}
+.ainput:focus{border-color:var(--primary)}
+.ahelp{font-size:var(--xs);color:var(--faint)}
+.ahelp a{color:var(--primary)}
+
+/* EMPTY */
+.empty{text-align:center;padding:var(--s16) var(--s8);color:var(--muted);display:flex;flex-direction:column;align-items:center;gap:var(--s4)}
+.empty svg{color:var(--faint)}
+.empty h3{font-size:var(--lg);color:var(--text);font-weight:700}
+.empty p{font-size:var(--sm);max-width:42ch}
+
+/* SKELETON */
+@keyframes shimmer{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.skel{background:linear-gradient(90deg,var(--offset) 25%,var(--surface2) 50%,var(--offset) 75%);background-size:200% 100%;animation:shimmer 1.4s ease-in-out infinite;border-radius:var(--r-md)}
+.skel-card{border-radius:var(--r-lg);overflow:hidden}
+.skel-thumb{aspect-ratio:16/9;width:100%}
+.skel-body{padding:var(--s4);display:flex;flex-direction:column;gap:var(--s2);background:var(--surface)}
+.skel-line{height:.875rem;border-radius:var(--r-sm)}
+.w60{width:60%}.w40{width:40%}
+
+/* RESULTS */
+.rmeta{display:flex;align-items:center;justify-content:space-between;margin-bottom:var(--s4);flex-wrap:wrap;gap:var(--s3)}
+.rmeta span{font-size:var(--xs);color:var(--muted);font-weight:500}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(280px,100%),1fr));gap:var(--s4)}
+
+/* CARD */
+.card{background:var(--surface);border-radius:var(--r-lg);overflow:hidden;border:1px solid var(--border);transition:box-shadow var(--ease),transform var(--ease),border-color var(--ease);position:relative}
+.card:hover{box-shadow:var(--sh-lg);transform:translateY(-3px);border-color:var(--primary)}
+.card.sel{border-color:#22d3ee;box-shadow:0 0 0 2px #22d3ee, 0 0 15px rgba(34,211,238,0.35);transform:scale(1.01);z-index:2}
+.cthumb{aspect-ratio:16/9;width:100%;overflow:hidden;position:relative;background:var(--offset);cursor:pointer}
+.cthumb img,.cthumb video{width:100%;height:100%;object-fit:cover;transition:opacity var(--ease)}
+.cthumb video{position:absolute;inset:0;opacity:0;transition:opacity .3s ease}
+.card:hover .cthumb video{opacity:1}
+.card:hover .cthumb img{opacity:0}
+.cov{position:absolute;inset:0;background:linear-gradient(to top,rgba(0,0,0,.6) 0%,transparent 50%);opacity:0;transition:opacity var(--ease);display:flex;align-items:flex-end;padding:var(--s3);pointer-events:none}
+.card:hover .cov{opacity:1}
+.dur{background:rgba(255,255,255,.15);backdrop-filter:blur(6px);border:1px solid rgba(255,255,255,.2);border-radius:var(--r-sm);padding:2px var(--s2);font-size:var(--xs);color:#fff;font-weight:600}
+.chk{position:absolute;top:var(--s2);left:var(--s2);width:22px;height:22px;background:rgba(0,0,0,.5);backdrop-filter:blur(6px);border:2px solid rgba(255,255,255,.4);border-radius:var(--r-sm);cursor:pointer;transition:background var(--ease),border-color var(--ease),transform var(--ease);display:flex;align-items:center;justify-content:center}
+.chk.on{background:#0891b2;border-color:#22d3ee;transform:scale(1.1)}
+.chk svg{opacity:0;transition:opacity var(--ease)}
+.chk.on svg{opacity:1}
+.csrc{position:absolute;top:var(--s2);right:var(--s2);background:rgba(0,0,0,.55);backdrop-filter:blur(6px);border-radius:var(--r-sm);padding:2px var(--s2);font-size:10px;font-weight:700;color:#fff;letter-spacing:.04em}
+.cinfo{padding:var(--s3) var(--s4);display:flex;align-items:center;gap:var(--s3)}
+.cmeta{flex:1;overflow:hidden}
+.cmeta .auth{font-size:var(--xs);font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cmeta .dim{font-size:var(--xs);color:var(--faint);font-family:var(--mono)}
+.dlbtn{flex-shrink:0;width:34px;height:34px;display:flex;align-items:center;justify-content:center;background:var(--primary);border-radius:var(--r-md);color:#fff;transition:background var(--ease),transform var(--ease),box-shadow var(--ease)}
+.dlbtn:hover{background:var(--primary-h);box-shadow:var(--sh-sm)}
+.dlbtn:active{transform:scale(.92)}
+.dlbtn.loading{background:var(--orange)}
+.dlbtn.done{background:var(--success)}
+.dlbtn:disabled{opacity:.6;cursor:default}
+
+/* CARD PROGRESS BAR */
+.cprog{position:absolute;bottom:0;left:0;right:0;height:4px;background:rgba(255,255,255,.15)}
+.cprogfill{height:100%;background:var(--primary);width:0%;transition:width .2s ease}
+
+/* PAGINATION */
+.pages{display:flex;justify-content:center;align-items:center;gap:var(--s3);margin-top:var(--s8);padding-top:var(--s6);border-top:1px solid var(--divider)}
+.pinfo{font-size:var(--xs);color:var(--muted)}
+
+/* TOAST */
+.toasts{position:fixed;bottom:var(--s6);right:var(--s6);display:flex;flex-direction:column;gap:var(--s2);z-index:999;pointer-events:none}
+.toast{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-lg);padding:var(--s3) var(--s4);box-shadow:var(--sh-lg);font-size:var(--sm);display:flex;align-items:flex-start;gap:var(--s2);animation:tin .25s cubic-bezier(.16,1,.3,1) forwards;pointer-events:auto;max-width:360px}
+.toast.ok{border-color:rgba(67,122,34,.4)}
+.toast.err{border-color:rgba(161,44,123,.4)}
+.toast.info{border-color:rgba(1,105,111,.4)}
+@keyframes tin{from{opacity:0;transform:translateX(20px)}to{opacity:1;transform:translateX(0)}}
+@keyframes tout{to{opacity:0;transform:translateX(20px)}}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* HOW-TO MODAL */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.65);backdrop-filter:blur(5px);z-index:200;display:flex;align-items:center;justify-content:center;padding:var(--s4)}
+.modal{background:var(--surface2);border:1px solid var(--border);border-radius:var(--r-xl);padding:var(--s8);max-width:500px;width:100%;box-shadow:var(--sh-lg)}
+.modal h3{font-size:var(--lg);font-weight:700;margin-bottom:var(--s3)}
+.modal ol{padding-left:var(--s5);display:flex;flex-direction:column;gap:var(--s2);font-size:var(--sm);color:var(--muted);line-height:1.7;margin-bottom:var(--s5)}
+.modal ol li strong{color:var(--text)}
+.modal-url{background:var(--offset);border:1px solid var(--border);border-radius:var(--r-md);padding:var(--s3);font-family:var(--mono);font-size:var(--xs);word-break:break-all;color:var(--muted);margin-bottom:var(--s5)}
+.modal-acts{display:flex;gap:var(--s3);flex-wrap:wrap}
+
+@media(max-width:640px){
+  .topbar{padding:var(--s3) var(--s4);gap:var(--s2)}
+  .logo span{display:none}
+  .ctrl{padding:var(--s3) var(--s4);gap:var(--s2)}
+  .main{padding:var(--s4)}
+  .bulk{margin-left:0}
+  .toasts{left:var(--s4);right:var(--s4)}
+}
+</style>
+</head>
+<body>
+<div class="app">
+
+<header class="topbar">
+  <div class="logo">
+    <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
+      <rect width="28" height="28" rx="8" fill="currentColor" opacity="0.12"/>
+      <path d="M7 14L14 7L21 14" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M14 7V21" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+      <path d="M9 21H19" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+    <span>ClipDownloader</span>
+  </div>
+  <div class="search-bar">
+    <div class="swrap">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      <input class="sinput" id="Q" type="text" placeholder="naturaleza, ciudad, tecnología, ocean..." autocomplete="off" spellcheck="false">
+    </div>
+    <button class="btn btn-p" id="searchBtn">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      Buscar
+    </button>
+  </div>
+  <div class="topbar-right">
+    <button class="tbtn" id="keyBtn" aria-label="API Keys" title="Configurar API Keys">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+    </button>
+    <button class="tbtn" id="themeBtn" aria-label="Tema">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</header>
+
+<div class="pbar-wrap" id="PW"><div class="pbar" id="PB" style="width:0%"></div></div>
+
+<div class="ctrl">
+  <div class="tabs">
+    <button class="tab on" data-src="pexels">Pexels</button>
+    <button class="tab" data-src="pixabay">Pixabay</button>
+  </div>
+  <label>Tipo: <select class="sel" id="mtype"><option value="videos">Videos</option><option value="photos">Fotos</option></select></label>
+  <div class="fmt-group" id="fmtGroup">
+    <button class="fmt-btn" data-fmt="16:9" title="Horizontal (16:9)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="12" x="2" y="6" rx="2"/></svg></button>
+    <button class="fmt-btn" data-fmt="9:16" title="Vertical (9:16)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="12" height="20" x="6" y="2" rx="2"/></svg></button>
+    <button class="fmt-btn" data-fmt="1:1" title="Cuadrado (1:1)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="16" x="4" y="4" rx="2"/></svg></button>
+  </div>
+  <label>Calidad: <select class="sel" id="qual"><option value="hd">HD 720p</option><option value="fhd" selected>Full HD 1080p</option><option value="4k">4K máxima</option></select></label>
+  <label>Por página: <select class="sel" id="pp"><option value="15">15</option><option value="30" selected>30</option><option value="50">50</option></select></label>
+  <div class="bulk">
+    <span id="selCount" style="font-size:var(--xs);color:var(--muted);display:none;align-items:center;gap:var(--s2)"><span class="badge" id="selN">0</span> seleccionados</span>
+    <button class="btn btn-p btn-sm" id="bulkBtn" style="display:none">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Descargar selección
+    </button>
+    <button class="btn btn-g btn-sm" id="selAllBtn" style="display:none">Sel. todo</button>
+  </div>
+</div>
+
+<main class="main">
+<div class="box">
+
+  <div class="banner" id="apiBanner">
+    <h2>⚙️ Configura tus API Keys gratuitas</h2>
+    <p>Necesitas al menos una API key para buscar clips. Son 100% gratuitas, sin tarjeta de crédito.</p>
+    <div class="arow">
+      <div class="af">
+        <label for="pxKey">Pexels API Key</label>
+        <input class="ainput" id="pxKey" type="text" placeholder="Pega tu key aquí...">
+        <span class="ahelp">Gratis en <a href="https://www.pexels.com/api/" target="_blank" rel="noopener">pexels.com/api</a></span>
+      </div>
+      <div class="af">
+        <label for="pbKey">Pixabay API Key</label>
+        <input class="ainput" id="pbKey" type="text" placeholder="Pega tu key aquí...">
+        <span class="ahelp">Gratis en <a href="https://pixabay.com/api/docs/" target="_blank" rel="noopener">pixabay.com/api/docs</a></span>
+      </div>
+      <button class="btn btn-p" id="saveKeys">Guardar →</button>
+    </div>
+    <p style="font-size:var(--xs);color:var(--faint)">🔒 Keys solo en memoria, no se envían a ningún servidor.</p>
+  </div>
+
+  <div id="RA" style="display:none">
+    <div class="rmeta">
+      <span id="RM">Resultados</span>
+      <span id="PW2" style="color:var(--primary);font-weight:600"></span>
+    </div>
+    <div class="grid" id="G"></div>
+    <div class="pages" id="PAG" style="display:none">
+      <button class="btn btn-g" id="prevBtn"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg> Anterior</button>
+      <span class="pinfo" id="PI">Página 1</span>
+      <button class="btn btn-g" id="nextBtn">Siguiente <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg></button>
+    </div>
+  </div>
+
+  <div class="empty" id="ES">
+    <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.3"><rect x="2" y="2" width="20" height="20" rx="3"/><path d="m10 8 6 4-6 4V8z"/></svg>
+    <h3>Busca tus clips</h3>
+    <p>Escribe una palabra clave como "naturaleza", "ocean" o "city" y presiona Buscar.</p>
+  </div>
+
+</div>
+</main>
+</div>
+
+<!-- HOW TO SAVE MODAL -->
+<div class="modal-bg" id="MB" style="display:none">
+  <div class="modal">
+    <h3>💾 Guardar archivo manualmente</h3>
+    <p style="font-size:var(--sm);color:var(--muted);margin-bottom:var(--s4)">El archivo se abrió en una nueva pestaña. Para guardarlo:</p>
+    <ol>
+      <li><strong>Videos:</strong> clic derecho sobre el video → <strong>"Guardar video como..."</strong></li>
+      <li><strong>Fotos:</strong> clic derecho sobre la imagen → <strong>"Guardar imagen como..."</strong></li>
+      <li>O presiona <strong>Ctrl + S</strong> en la nueva pestaña.</li>
+    </ol>
+    <p style="font-size:var(--xs);color:var(--muted);margin-bottom:var(--s3)">URL directa del archivo:</p>
+    <div class="modal-url" id="MU"></div>
+    <div class="modal-acts">
+      <button class="btn btn-p" id="MOpen">Abrir archivo</button>
+      <button class="btn btn-g" id="MCopy">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        Copiar enlace
+      </button>
+      <button class="btn btn-g" id="MClose">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div class="toasts" id="TW"></div>
+
+<script>
+// ── STATE ──────────────────────────────────────────────────
+const S = {
+  pxKey: localStorage.getItem('pxKey')||'', pbKey: localStorage.getItem('pbKey')||'', src:'pexels', mtype:'videos', qual:'fhd',
+  q:'', page:1, pp:30, total:0, items:[], sel:new Map(), busy:false, fmts:[]
+};
+
+window.addEventListener('DOMContentLoaded', () => {
+  if (S.pxKey) document.getElementById('pxKey').value = S.pxKey;
+  if (S.pbKey) document.getElementById('pbKey').value = S.pbKey;
+  if (S.pxKey || S.pbKey) document.getElementById('apiBanner').style.display = 'none';
+});
+
+// ── THEME ──────────────────────────────────────────────────
+let theme='light';
+const root=document.documentElement;
+root.setAttribute('data-theme','light');
+document.getElementById('themeBtn').addEventListener('click',()=>{
+  theme=theme==='dark'?'light':'dark';
+  root.setAttribute('data-theme',theme);
+  document.getElementById('themeBtn').innerHTML=theme==='dark'
+    ?`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>`
+    :`<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>`;
+});
+
+// ── TOAST ──────────────────────────────────────────────────
+function toast(msg,type='ok',ms=4500){
+  const w=document.getElementById('TW'),t=document.createElement('div');
+  t.className=`toast ${type}`;
+  const ic={ok:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#437a22" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`,
+    err:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#a12c7b" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>`,
+    info:`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#01696f" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`};
+  t.innerHTML=(ic[type]||ic.info)+`<span>${msg}</span>`;
+  w.appendChild(t);
+  setTimeout(()=>{t.style.animation='tout .2s ease forwards';setTimeout(()=>t.remove(),200);},ms);
+}
+
+// ── PROGRESS ──────────────────────────────────────────────
+function prog(pct){
+  document.getElementById('PW').classList.add('on');
+  document.getElementById('PB').style.width=pct+'%';
+  if(pct>=100)setTimeout(()=>{document.getElementById('PW').classList.remove('on');document.getElementById('PB').style.width='0%';},600);
+}
+
+// ── MODAL ──────────────────────────────────────────────────
+let _mUrl='';
+function showModal(url){
+  _mUrl=url;
+  document.getElementById('MU').textContent=url;
+  document.getElementById('MB').style.display='flex';
+}
+document.getElementById('MOpen').onclick=()=>window.open(_mUrl,'_blank');
+document.getElementById('MCopy').onclick=()=>navigator.clipboard.writeText(_mUrl).then(()=>toast('Enlace copiado')).catch(()=>toast('No se pudo copiar','err'));
+document.getElementById('MClose').onclick=()=>document.getElementById('MB').style.display='none';
+document.getElementById('MB').addEventListener('click',e=>{if(e.target===e.currentTarget)e.currentTarget.style.display='none';});
+
+// ── KEYS ──────────────────────────────────────────────────
+document.getElementById('saveKeys').addEventListener('click',()=>{
+  S.pxKey=document.getElementById('pxKey').value.trim();
+  S.pbKey=document.getElementById('pbKey').value.trim();
+  if(!S.pxKey&&!S.pbKey){toast('Ingresa al menos una API key','err');return;}
+  if(S.pxKey) localStorage.setItem('pxKey', S.pxKey);
+  if(S.pbKey) localStorage.setItem('pbKey', S.pbKey);
+  document.getElementById('apiBanner').style.display='none';
+  toast('¡Keys guardadas! Ahora busca tus clips.');
+});
+
+document.getElementById('keyBtn').addEventListener('click',()=>{
+  document.getElementById('apiBanner').style.display='flex';
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+
+// ── SOURCE TABS ───────────────────────────────────────────
+document.querySelectorAll('.tab[data-src]').forEach(b=>{
+  b.addEventListener('click',()=>{
+    document.querySelectorAll('.tab[data-src]').forEach(x=>x.classList.remove('on'));
+    b.classList.add('on'); S.src=b.dataset.src;
+  });
+});
+
+document.getElementById('mtype').addEventListener('change',e=>S.mtype=e.target.value);
+document.getElementById('qual').addEventListener('change',e=>S.qual=e.target.value);
+document.getElementById('pp').addEventListener('change',e=>S.pp=parseInt(e.target.value));
+
+document.querySelectorAll('.fmt-btn').forEach(b => {
+  b.addEventListener('click', () => {
+    const f = b.dataset.fmt;
+    if (S.fmts.includes(f)) {
+      S.fmts = S.fmts.filter(x => x !== f);
+      b.classList.remove('on');
+    } else {
+      S.fmts.push(f);
+      b.classList.add('on');
+    }
+    if (S.q) { S.page=1; fetchData(); }
+  });
+});
+
+// ── SEARCH ────────────────────────────────────────────────
+document.getElementById('searchBtn').addEventListener('click',doSearch);
+document.getElementById('Q').addEventListener('keydown',e=>{if(e.key==='Enter')doSearch();});
+
+function doSearch(){
+  const k1 = document.getElementById('pxKey').value.trim();
+  const k2 = document.getElementById('pbKey').value.trim();
+  if(k1) { S.pxKey = k1; localStorage.setItem('pxKey', k1); }
+  if(k2) { S.pbKey = k2; localStorage.setItem('pbKey', k2); }
+
+  const q=document.getElementById('Q').value.trim();
+  if(!q){toast('Escribe una palabra clave','err');return;}
+  if(S.src==='pexels'&&!S.pxKey){toast('Falta Pexels API Key. Ábrelas con el ⚙️ arriba.','err');return;}
+  if(S.src==='pixabay'&&!S.pbKey){toast('Falta Pixabay API Key. Ábrelas con el ⚙️ arriba.','err');return;}
+  S.q=q; S.page=1; S.sel.clear(); updateBulk();
+  fetchData();
+}
+
+// ── API FETCH ─────────────────────────────────────────────
+async function fetchData(){
+  if(S.busy)return;
+  S.busy=true; prog(20); showSkel();
+  try{
+    const d=S.src==='pexels'?await apiPexels():await apiPixabay();
+    let filtered = d.items;
+    
+    if (S.fmts.length > 0) {
+      filtered = filtered.filter(it => {
+        if (!it.w || !it.h) return true; 
+        const r = it.w / it.h;
+        const o = r > 1.05 ? '16:9' : r < 0.95 ? '9:16' : '1:1';
+        return S.fmts.includes(o);
+      });
+    }
+
+    prog(80); S.items=filtered; S.total=d.total;
+    renderGrid(); prog(100);
+  }catch(e){
+    toast('Error: '+e.message,'err');
+    document.getElementById('ES').style.display='flex';
+    document.getElementById('RA').style.display='none';
+    prog(100);
+  }finally{S.busy=false;}
+}
+
+async function apiPexels(){
+  const iv=S.mtype==='videos';
+  let url=iv
+    ?`https://api.pexels.com/videos/search?query=${encodeURIComponent(S.q)}&per_page=${S.pp}&page=${S.page}`
+    :`https://api.pexels.com/v1/search?query=${encodeURIComponent(S.q)}&per_page=${S.pp}&page=${S.page}`;
+  if(S.fmts.length===1){
+    const o={'16:9':'landscape','9:16':'portrait','1:1':'square'}[S.fmts[0]];
+    url+=`&orientation=${o}`;
+  }
+  const r=await fetch(url,{headers:{Authorization:S.pxKey}});
+  if(!r.ok)throw new Error(`Pexels ${r.status}`);
+  const j=await r.json();
+  if(iv)return{total:j.total_results||0,items:(j.videos||[]).map(v=>({
+    id:v.id,src:'pexels',type:'video',thumb:v.image,
+    preview:v.video_files?.find(f=>f.quality==='sd')?.link||v.video_files?.[0]?.link,
+    author:v.user?.name||'Pexels',w:v.width,h:v.height,dur:v.duration,
+    files:v.video_files||[],url:v.url,
+  }))};
+  return{total:j.total_results||0,items:(j.photos||[]).map(p=>({
+    id:p.id,src:'pexels',type:'photo',thumb:p.src?.medium,preview:null,
+    author:p.photographer||'Pexels',w:p.width,h:p.height,
+    files:p.src,url:p.url,
+  }))};
+}
+
+async function apiPixabay(){
+  const iv=S.mtype==='videos';
+  let url=iv
+    ?`https://pixabay.com/api/videos/?key=${S.pbKey}&q=${encodeURIComponent(S.q)}&per_page=${S.pp}&page=${S.page}`
+    :`https://pixabay.com/api/?key=${S.pbKey}&q=${encodeURIComponent(S.q)}&per_page=${S.pp}&page=${S.page}&image_type=photo`;
+  if(S.fmts.length===1){
+    const po={'16:9':'horizontal','9:16':'vertical'}[S.fmts[0]];
+    if(po)url+=`&orientation=${po}`;
+  }
+  const r=await fetch(url);
+  if(!r.ok)throw new Error(`Pixabay ${r.status}`);
+  const j=await r.json();
+  if(j.error)throw new Error(j.error);
+  if(iv)return{total:j.totalHits||0,items:(j.hits||[]).map(v=>({
+    id:v.id,src:'pixabay',type:'video',
+    thumb:v.picture_id?`https://i.vimeocdn.com/video/${v.picture_id}_600x338.jpg`:'',
+    preview:v.videos?.tiny?.url||v.videos?.small?.url||'',
+    author:v.user||'Pixabay',w:v.videos?.large?.width||1280,h:v.videos?.large?.height||720,
+    dur:v.duration,files:v.videos||{},url:v.pageURL,
+  }))};
+  return{total:j.totalHits||0,items:(j.hits||[]).map(p=>({
+    id:p.id,src:'pixabay',type:'photo',
+    thumb:p.webformatURL,preview:null,
+    author:p.user||'Pixabay',w:p.imageWidth,h:p.imageHeight,
+    files:{full:p.largeImageURL,medium:p.webformatURL,small:p.previewURL},url:p.pageURL,
+  }))};
+}
+
+// ── BEST URL ──────────────────────────────────────────────
+function bestUrl(item){
+  const q=S.qual;
+  if(item.src==='pexels'){
+    if(item.type==='video'){
+      const fs=item.files||[];
+      const order=q==='4k'?['4k','uhd','hd','full_hd','sd']:q==='fhd'?['hd','full_hd','sd']:['sd','hd'];
+      for(const pq of order){const f=fs.find(f=>f.quality===pq);if(f?.link)return{url:f.link,ext:'mp4'};}
+      return{url:fs[0]?.link||null,ext:'mp4'};
+    }else{
+      const s=item.files||{};
+      const url=q==='4k'?(s.original||s.large2x||s.large):q==='fhd'?(s.large2x||s.large||s.medium):(s.medium||s.large);
+      return{url:url||null,ext:'jpg'};
+    }
+  }else{
+    if(item.type==='video'){
+      const vs=item.files||{};
+      const order=q==='4k'?['4k','large','medium','small','tiny']:q==='fhd'?['large','medium','small','tiny']:['medium','small','large','tiny'];
+      for(const pq of order){if(vs[pq]?.url)return{url:vs[pq].url,ext:'mp4'};}
+    }else{
+      const url=q==='4k'?item.files?.full:(item.files?.medium||item.files?.full);
+      return{url:url||null,ext:'jpg'};
+    }
+  }
+  return{url:null,ext:'mp4'};
+}
+
+// ── DOWNLOAD — 3-STEP STRATEGY ────────────────────────────
+// Step 1: fetch → blob (works with CORS)
+// Step 2: fetch via CORS proxy (fallback for CORS-blocked CDNs)
+// Step 3: window.open → manual save (always works)
+async function dlItem(item,btn){
+  const{url,ext}=bestUrl(item);
+  if(!url){toast('URL no disponible','err');return;}
+  const fname=`clip_${item.src}_${item.id}.${ext}`;
+  const orig=btn?.innerHTML||'';
+
+  function setBtn(state){
+    if(!btn)return;
+    btn.disabled=state==='busy';
+    if(state==='busy')btn.innerHTML=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="animation:spin .7s linear infinite"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>`;
+    else if(state==='done')btn.innerHTML=`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>`;
+    else btn.innerHTML=orig;
+    btn.className='dlbtn'+(state==='busy'?' loading':state==='done'?' done':'');
+  }
+
+  // Add progress bar to card
+  const card=btn?.closest('.card');
+  let pg=card?.querySelector('.cprog');
+  if(card && !pg){pg=document.createElement('div');pg.className='cprog';pg.innerHTML='<div class="cprogfill"></div>';card.querySelector('.cthumb').appendChild(pg);}
+  const fill=pg?.querySelector('.cprogfill');
+
+  setBtn('busy');
+
+  // ── STEP 1: Direct fetch → blob ──────────────────────────
+  try{
+    const opts={mode:'cors'};
+    const res=await fetch(url,opts);
+    if(!res.ok)throw new Error('HTTP '+res.status);
+    const ct=parseInt(res.headers.get('Content-Length')||'0');
+    const reader=res.body.getReader();
+    const chunks=[];let loaded=0;
+    while(true){
+      const{done,value}=await reader.read();
+      if(done)break;
+      chunks.push(value);loaded+=value.length;
+      if(ct>0&&fill)fill.style.width=Math.round(loaded/ct*100)+'%';
+    }
+    if(fill)fill.style.width='100%';
+    const blob=new Blob(chunks,{type:ext==='mp4'?'video/mp4':'image/jpeg'});
+    const burl=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=burl;a.download=fname;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(burl),1000);
+    setBtn('done');toast(`✅ Descargado: ${fname}`);
+    setTimeout(()=>{setBtn('idle');pg?.remove();},3000);
+    return;
+  }catch(e1){
+    // STEP 1 failed (CORS or file:// restriction)
+    console.warn('Fetch directo falló:',e1.message);
+  }
+
+  // ── STEP 2: CORS proxy → blob ────────────────────────────
+  // corsproxy.io — free proxy, works for most URLs
+  // Note: may not work for very large videos (>50MB)
+  try{
+    if(fill)fill.style.width='30%';
+    const proxyUrl='https://corsproxy.io/?'+encodeURIComponent(url);
+    const res=await fetch(proxyUrl);
+    if(!res.ok)throw new Error('Proxy '+res.status);
+    const ct=parseInt(res.headers.get('Content-Length')||'0');
+    const reader=res.body.getReader();
+    const chunks=[];let loaded=0;
+    while(true){
+      const{done,value}=await reader.read();
+      if(done)break;
+      chunks.push(value);loaded+=value.length;
+      if(ct>0&&fill)fill.style.width=30+Math.round(loaded/ct*70)+'%';
+    }
+    if(fill)fill.style.width='100%';
+    const blob=new Blob(chunks,{type:ext==='mp4'?'video/mp4':'image/jpeg'});
+    const burl=URL.createObjectURL(blob);
+    const a=document.createElement('a');a.href=burl;a.download=fname;
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(burl),1000);
+    setBtn('done');toast(`✅ Descargado vía proxy: ${fname}`);
+    setTimeout(()=>{setBtn('idle');pg?.remove();},3000);
+    return;
+  }catch(e2){
+    console.warn('Proxy falló:',e2.message);
+  }
+
+  // ── STEP 3: Open in new tab (manual save) ───────────────
+  // Always works. User right-clicks → Save As.
+  pg?.remove();
+  window.open(url,'_blank');
+  setBtn('idle');
+  toast('📂 Archivo abierto en nueva pestaña','info',8000);
+  showModal(url);
+}
+
+// ── SKELETONS ─────────────────────────────────────────────
+function showSkel(){
+  document.getElementById('ES').style.display='none';
+  document.getElementById('RA').style.display='block';
+  document.getElementById('G').innerHTML=Array.from({length:12}).map(()=>`
+    <div class="skel-card">
+      <div class="skel skel-thumb"></div>
+      <div class="skel-body">
+        <div class="skel skel-line w60"></div>
+        <div class="skel skel-line w40"></div>
+      </div>
+    </div>`).join('');
+  document.getElementById('PAG').style.display='none';
+}
+
+// ── RENDER ────────────────────────────────────────────────
+function renderGrid(){
+  const g=document.getElementById('G');
+  document.getElementById('RA').style.display='block';
+  document.getElementById('ES').style.display='none';
+  const{total,items,page,pp,q,src}=S;
+  const s=(page-1)*pp+1,e=Math.min(page*pp,total);
+  document.getElementById('RM').textContent=total>0?`Mostrando ${s}–${e} de ${total.toLocaleString()} resultados para "${q}"`:`Sin resultados para "${q}"`;
+  document.getElementById('PW2').textContent=src==='pexels'?'⚡ Pexels':'🎨 Pixabay';
+  if(!items.length){g.innerHTML=`<div style="grid-column:1/-1;text-align:center;padding:var(--s10);color:var(--muted)">Sin resultados para "${q}"</div>`;return;}
+  g.innerHTML=items.map(cardHTML).join('');
+
+  g.querySelectorAll('.cthumb').forEach(ct=>{
+    ct.addEventListener('click',e=>{
+      e.stopPropagation();
+      const card = ct.closest('.card');
+      const id = card.dataset.id;
+      const c = card.querySelector('.chk');
+      if(S.sel.has(id)){
+        S.sel.delete(id);c.classList.remove('on');card.classList.remove('sel');
+      }else{
+        const item=S.items.find(r=>String(r.id)===id);
+        if(item)S.sel.set(id,item);
+        c.classList.add('on');card.classList.add('sel');
+      }
+      updateBulk();
+    });
+  });
+  g.querySelectorAll('.dlbtn').forEach(b=>{
+    b.addEventListener('click',e=>{
+      e.stopPropagation();
+      const item=S.items.find(r=>String(r.id)===b.dataset.id);
+      if(item)dlItem(item,b);
+    });
+  });
+  g.querySelectorAll('.cthumb').forEach(t=>{
+    const v=t.querySelector('video');
+    if(v){
+      t.addEventListener('mouseenter',()=>{if(!v.src)v.src=v.dataset.src;v.play().catch(()=>{});});
+      t.addEventListener('mouseleave',()=>v.pause());
+    }
+  });
+
+  const tp=Math.ceil(total/pp);
+  if(tp>1){
+    document.getElementById('PAG').style.display='flex';
+    document.getElementById('PI').textContent=`Página ${page} de ${tp}`;
+    document.getElementById('prevBtn').disabled=page<=1;
+    document.getElementById('nextBtn').disabled=page>=tp;
+  }else document.getElementById('PAG').style.display='none';
+  document.getElementById('selAllBtn').style.display='';
+}
+
+function cardHTML(it){
+  const dur=it.dur?`${Math.floor(it.dur/60)}:${String(it.dur%60).padStart(2,'0')}`:null;
+  const dims=it.w&&it.h?`${it.w}×${it.h}`:'';
+  const on=S.sel.has(String(it.id));
+  return`<div class="card${on?' sel':''}" data-id="${it.id}">
+    <div class="cthumb">
+      <img src="${it.thumb||''}" alt="${it.author}" loading="lazy" width="400" height="225" onerror="this.style.opacity='.15'">
+      ${it.preview?`<video data-src="${it.preview}" loop muted playsinline preload="none"></video>`:''}
+      <div class="cov">${dur?`<span class="dur">${dur}</span>`:''}</div>
+      <div class="chk${on?' on':''}" data-id="${it.id}" title="Seleccionar">
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <div class="csrc">${it.src.toUpperCase()}</div>
+    </div>
+    <div class="cinfo">
+      <div class="cmeta">
+        <div class="auth" title="${it.author}">@${it.author}</div>
+        <div class="dim">${dims}${it.type==='video'?' · VIDEO':' · FOTO'}</div>
+      </div>
+      <button class="dlbtn" data-id="${it.id}" title="Descargar">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      </button>
+    </div>
+  </div>`;
+}
+
+// ── BULK ──────────────────────────────────────────────────
+document.getElementById('bulkBtn').addEventListener('click',async()=>{
+  const items=Array.from(S.sel.values());
+  if(!items.length)return;
+  toast(`Iniciando ${items.length} descargas...`,'info');
+  let done=0;
+  for(const it of items){
+    const b=document.querySelector(`.dlbtn[data-id="${it.id}"]`);
+    await dlItem(it,b);
+    done++;prog(Math.round(done/items.length*100));
+    await new Promise(r=>setTimeout(r,800));
+  }
+  toast(`✅ ${items.length} descargas completadas`);
+});
+
+document.getElementById('selAllBtn').addEventListener('click',()=>{
+  const all=S.items.every(r=>S.sel.has(String(r.id)));
+  S.items.forEach(r=>{
+    const id=String(r.id);
+    if(all){S.sel.delete(id);}else{S.sel.set(id,r);}
+    document.querySelector(`.chk[data-id="${id}"]`)?.classList.toggle('on',!all);
+    document.querySelector(`.card[data-id="${id}"]`)?.classList.toggle('sel',!all);
+  });
+  document.getElementById('selAllBtn').textContent=all?'Sel. todo':'Desel. todo';
+  updateBulk();
+});
+
+function updateBulk(){
+  const n=S.sel.size;
+  document.getElementById('selCount').style.display=n>0?'flex':'none';
+  document.getElementById('selN').textContent=n;
+  document.getElementById('bulkBtn').style.display=n>0?'inline-flex':'none';
+}
+
+// ── PAGINATION ────────────────────────────────────────────
+document.getElementById('prevBtn').addEventListener('click',()=>{if(S.page>1){S.page--;fetchData();scrollTo({top:0,behavior:'smooth'});}});
+document.getElementById('nextBtn').addEventListener('click',()=>{S.page++;fetchData();scrollTo({top:0,behavior:'smooth'});});
+</script>
+</body>
+</html>

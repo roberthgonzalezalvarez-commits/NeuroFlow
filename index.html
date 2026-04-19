@@ -317,6 +317,27 @@
           </div>
         </div>
 
+        <!-- Freepik Image Generator -->
+        <div class="tool-card" onclick="openTool('freepik')">
+          <div class="tool-card-badge-wrap">
+            <div class="tool-card-icon tool-icon-purple">
+              <span class="material-symbols-rounded">image</span>
+            </div>
+            <span class="tool-dev-badge">En desarrollo</span>
+          </div>
+          <div class="tool-card-info">
+            <h3>Generador de Imágenes</h3>
+            <p>Crea imágenes increíbles con IA utilizando los modelos Mystic y Flux de Freepik</p>
+            <div class="tool-dev-notice">
+              <span class="material-symbols-rounded" style="font-size:14px">warning</span>
+              Esta herramienta aún no está completa y puede contener errores
+            </div>
+          </div>
+          <div class="tool-card-arrow">
+            <span class="material-symbols-rounded">arrow_forward</span>
+          </div>
+        </div>
+
         <!-- Workflow Builder -->
         <div class="tool-card" onclick="openTool('workflow')">
           <div class="tool-card-badge-wrap">
@@ -436,15 +457,6 @@
       </div>
       <form id="channelForm">
         <input type="hidden" id="canalId">
-        <div class="field" style="display: flex; gap: 8px; align-items: flex-end;">
-          <div style="flex: 1;">
-            <label for="canalUrl">URL del canal (Opcional - Autocompletado)</label>
-            <input type="url" id="canalUrl" placeholder="https://youtube.com/... o Twitch">
-          </div>
-          <button type="button" class="btn-primary" id="fetchUrlBtn" style="padding: 10px 16px; border-radius: var(--radius-md);" title="Obtener info del canal">
-            <span class="material-symbols-rounded" style="font-size: 18px;">search</span>
-          </button>
-        </div>
         <div class="field">
           <label>Foto del canal</label>
           <div class="upload-area" id="photoUploadArea">
@@ -528,6 +540,6 @@
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-  <script src="app.js?v=6"></script>
+  <script src="app.js?v=999"></script>
 </body>
 </html>
