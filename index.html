@@ -82,6 +82,10 @@
             <span class="material-symbols-rounded">format_list_numbered</span>
             Mi Tier List
           </button>
+          <button class="nav-tab" data-view="savedtierlists">
+            <span class="material-symbols-rounded">bookmark</span>
+            Mis Tier Lists
+          </button>
           <button class="nav-tab" data-view="projects">
             <span class="material-symbols-rounded">work</span>
             Proyectos
@@ -173,6 +177,27 @@
       </section>
     </div>
 
+    <!-- ===== VIEW: SAVED TIER LISTS ===== -->
+    <div class="view" id="viewSavedtierlists" style="display:none">
+      <div class="community-header" style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem;">
+        <div>
+          <h2>Mis Tier Lists Guardadas</h2>
+          <p>Historial de tus tier lists para cada mes</p>
+        </div>
+        <button id="saveSnapshotBtn" class="btn-primary">
+          <span class="material-symbols-rounded">add_circle</span>
+          Guardar Tier List Actual
+        </button>
+      </div>
+      <div class="saved-tierlists-grid" id="savedTierlistsGrid">
+        <div class="community-empty" id="savedTierlistsEmpty">
+          <span class="material-symbols-rounded">bookmark_border</span>
+          <p>No tienes tier lists guardadas</p>
+          <small>Guarda una snapshot de tu tier list actual para mantener un historial</small>
+        </div>
+      </div>
+    </div>
+
     <!-- ===== VIEW: COMMUNITY ===== -->
     <div class="view" id="viewCommunity" style="display:none">
       <div class="community-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
@@ -196,18 +221,26 @@
 
     <!-- ===== VIEW: PROJECTS ===== -->
     <div class="view" id="viewProjects" style="display:none">
-      <div class="community-header">
-        <h2>Proyectos de la Semana</h2>
-        <p>Envía archivos, fotos o enlaces a otros creadores</p>
-      </div>
-      
-      <div class="projects-layout">
-        <div class="projects-form-container">
+      <div class="projects-layout" style="display: flex; gap: 24px; padding-top: 10px;">
+        <div class="projects-form-container" style="flex: 0 0 320px; align-self: flex-start;">
+          <h2 style="margin-bottom: 20px;">Subir Proyectos</h2>
           <form id="projectMessageForm" class="project-form">
             <div class="field">
-              <label for="projectRecipient">Destinatario</label>
+              <label for="projectRecipient">Persona asignada</label>
               <select id="projectRecipient" required>
                 <option value="" disabled selected>Cargando usuarios...</option>
+              </select>
+            </div>
+
+            <div class="field">
+              <label for="projectType">Tipo de Proyecto</label>
+              <select id="projectType" required>
+                <option value="" disabled selected>Selecciona el tipo de proyecto</option>
+                <option value="Video a realizar">Video a realizar</option>
+                <option value="Miniatura">Miniatura</option>
+                <option value="Edición de Video">Edición de Video</option>
+                <option value="Diseño Gráfico">Diseño Gráfico</option>
+                <option value="Otro">Otro</option>
               </select>
             </div>
             
@@ -246,14 +279,35 @@
           </form>
         </div>
         
-        <div class="projects-list-container">
-          <h3>Archivos Recientes</h3>
-          <div id="projectsList" class="projects-list">
-            <div class="community-empty">
-              <span class="material-symbols-rounded">work_history</span>
-              <p>No hay mensajes recientes</p>
+        <div class="projects-list-container" style="flex: 1; display: flex; flex-direction: column;">
+          
+          <div class="community-header" style="margin-bottom: 16px;">
+            <h2>PROYECTOS</h2>
+          </div>
+
+          <div class="projects-tabs">
+            <button class="project-tab active" data-ptab="sent">TODOS LOS PROYECTOS</button>
+            <button class="project-tab" data-ptab="received">ASIGNADOS A MÍ</button>
+          </div>
+          
+          <div id="projectsContentSent" class="projects-tab-content">
+            <div id="projectsListSent" class="projects-grid">
+              <div class="community-empty">
+                <span class="material-symbols-rounded">outbox</span>
+                <p>No has iniciado proyectos</p>
+              </div>
             </div>
           </div>
+
+          <div id="projectsContentReceived" class="projects-tab-content" style="display: none;">
+            <div id="projectsListReceived" class="projects-grid">
+              <div class="community-empty">
+                <span class="material-symbols-rounded">inbox</span>
+                <p>No tienes proyectos pendientes</p>
+              </div>
+            </div>
+          </div>
+
         </div>
       </div>
     </div>
@@ -529,6 +583,29 @@
             </button>
           </form>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== MODAL: View Project Details ===== -->
+  <div class="modal-overlay" id="projectDetailsModal">
+    <div class="modal">
+      <div class="modal-header">
+        <h2 id="pdTitle">Detalles del Proyecto</h2>
+        <div class="modal-header-actions">
+          <button class="icon-btn text-success" id="pdMarkDoneBtn" title="Marcar Realizado" style="display:none">
+            <span class="material-symbols-rounded">done_all</span>
+          </button>
+          <button class="icon-btn text-danger" id="pdDeleteBtn" title="Eliminar proyecto">
+            <span class="material-symbols-rounded">delete</span>
+          </button>
+          <button class="icon-btn" id="pdCloseBtn"><span class="material-symbols-rounded">close</span></button>
+        </div>
+      </div>
+      <div class="field" style="margin-top: 10px;">
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 12px;" id="pdMeta"></p>
+        <div id="pdText" class="project-message-body" style="margin-bottom: 12px; background: var(--surface); padding: 12px; border-radius: var(--radius-sm); font-size: 0.9rem;"></div>
+        <div id="pdLinks" style="display: flex; gap: 10px; flex-wrap: wrap;"></div>
       </div>
     </div>
   </div>
