@@ -1,0 +1,1382 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Video Sync Editor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300..700&display=swap" rel="stylesheet">
+<style>
+/* ── TOKENS ── */
+:root {
+  --text-xs: clamp(0.75rem, 0.7rem + 0.25vw, 0.875rem);
+  --text-sm: clamp(0.875rem, 0.8rem + 0.35vw, 1rem);
+  --text-base: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  --text-lg: clamp(1.125rem, 1rem + 0.75vw, 1.5rem);
+  --text-xl: clamp(1.5rem, 1.2rem + 1.25vw, 2.25rem);
+  --space-1:.25rem;--space-2:.5rem;--space-3:.75rem;--space-4:1rem;
+  --space-5:1.25rem;--space-6:1.5rem;--space-8:2rem;--space-10:2.5rem;
+  --space-12:3rem;--space-16:4rem;
+  --radius-sm:.375rem;--radius-md:.5rem;--radius-lg:.75rem;--radius-xl:1rem;--radius-full:9999px;
+  --transition-interactive:180ms cubic-bezier(0.16,1,0.3,1);
+  --font-body:'Inter','Helvetica Neue',sans-serif;
+}
+[data-theme="dark"] {
+  --color-bg:#0f0f0f;
+  --color-surface:#161616;
+  --color-surface-2:#1e1e1e;
+  --color-surface-offset:#242424;
+  --color-surface-dynamic:#2a2a2a;
+  --color-divider:#2e2e2e;
+  --color-border:#383838;
+  --color-text:#e8e8e6;
+  --color-text-muted:#888886;
+  --color-text-faint:#444442;
+  --color-primary:#c084fc;
+  --color-primary-hover:#a855f7;
+  --color-primary-active:#9333ea;
+  --color-primary-highlight:#2d1b4e;
+  --color-success:#4ade80;
+  --color-error:#f87171;
+  --color-warning:#fbbf24;
+  --shadow-sm:0 1px 2px oklch(0 0 0/.3);
+  --shadow-md:0 4px 12px oklch(0 0 0/.4);
+  --shadow-lg:0 12px 32px oklch(0 0 0/.5);
+}
+[data-theme="light"] {
+  --color-bg:#f5f5f3;
+  --color-surface:#ffffff;
+  --color-surface-2:#fafafa;
+  --color-surface-offset:#f0f0ee;
+  --color-surface-dynamic:#e8e8e6;
+  --color-divider:#e0e0de;
+  --color-border:#d0d0ce;
+  --color-text:#1a1a18;
+  --color-text-muted:#6b6b69;
+  --color-text-faint:#b0b0ae;
+  --color-primary:#7c3aed;
+  --color-primary-hover:#6d28d9;
+  --color-primary-active:#5b21b6;
+  --color-primary-highlight:#ede9fe;
+  --color-success:#16a34a;
+  --color-error:#dc2626;
+  --color-warning:#d97706;
+  --shadow-sm:0 1px 2px oklch(0.2 0.01 80/.06);
+  --shadow-md:0 4px 12px oklch(0.2 0.01 80/.08);
+  --shadow-lg:0 12px 32px oklch(0.2 0.01 80/.12);
+}
+
+/* ── RESET ── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-font-smoothing:antialiased;scroll-behavior:smooth}
+body{min-height:100dvh;font-family:var(--font-body);font-size:var(--text-base);color:var(--color-text);background:var(--color-bg);transition:background .2s,color .2s}
+img,canvas{display:block;max-width:100%}
+button{cursor:pointer;background:none;border:none;font:inherit;color:inherit}
+input,textarea,select{font:inherit;color:inherit}
+a,button,[role="button"],input,textarea,select{transition:color var(--transition-interactive),background var(--transition-interactive),border-color var(--transition-interactive),box-shadow var(--transition-interactive)}
+
+/* ── LAYOUT ── */
+.app { display:grid; grid-template-rows:56px 1fr; min-height:100dvh; }
+header {
+  display:flex; align-items:center; justify-content:space-between;
+  padding:0 var(--space-6); border-bottom:1px solid var(--color-divider);
+  background:var(--color-surface); position:sticky; top:0; z-index:100;
+  box-shadow:var(--shadow-sm);
+}
+.logo { display:flex; align-items:center; gap:var(--space-2); font-size:var(--text-sm); font-weight:600; letter-spacing:-.01em; }
+.logo svg { color:var(--color-primary); }
+.header-actions { display:flex; align-items:center; gap:var(--space-3); }
+
+.workspace {
+  display:grid;
+  grid-template-columns:380px 1fr;
+  gap:0;
+  overflow:hidden;
+  height:calc(100dvh - 56px);
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  background:var(--color-surface);
+  border-right:1px solid var(--color-divider);
+  display:flex; flex-direction:column;
+  overflow:hidden;
+}
+.sidebar-tabs {
+  display:flex; border-bottom:1px solid var(--color-divider);
+  flex-shrink:0;
+}
+.sidebar-tab {
+  flex:1; padding:var(--space-3) var(--space-4); font-size:var(--text-sm);
+  font-weight:500; color:var(--color-text-muted); border-bottom:2px solid transparent;
+  transition:all var(--transition-interactive); text-align:center;
+}
+.sidebar-tab.active { color:var(--color-primary); border-bottom-color:var(--color-primary); }
+.sidebar-tab:hover:not(.active) { color:var(--color-text); background:var(--color-surface-offset); }
+
+.sidebar-content { flex:1; overflow-y:auto; padding:var(--space-4); display:flex; flex-direction:column; gap:var(--space-4); }
+
+/* ── CARDS ── */
+.card {
+  background:var(--color-surface-2); border:1px solid var(--color-divider);
+  border-radius:var(--radius-lg); padding:var(--space-4);
+}
+.card-title { font-size:var(--text-sm); font-weight:600; margin-bottom:var(--space-3); color:var(--color-text); display:flex; align-items:center; gap:var(--space-2); }
+.card-title svg { color:var(--color-primary); flex-shrink:0; }
+
+/* ── FORM ELEMENTS ── */
+label { font-size:var(--text-xs); font-weight:500; color:var(--color-text-muted); display:block; margin-bottom:var(--space-1); text-transform:uppercase; letter-spacing:.06em; }
+input[type="text"], input[type="number"], textarea, select {
+  width:100%; padding:var(--space-2) var(--space-3);
+  background:var(--color-surface-offset); border:1px solid var(--color-border);
+  border-radius:var(--radius-md); font-size:var(--text-sm); color:var(--color-text);
+  outline:none;
+}
+input[type="text"]:focus, input[type="number"]:focus, textarea:focus, select:focus {
+  border-color:var(--color-primary); box-shadow:0 0 0 3px color-mix(in oklch,var(--color-primary) 20%,transparent);
+}
+textarea { resize:vertical; min-height:140px; line-height:1.6; font-family:monospace; font-size:var(--text-xs); }
+
+/* ── BUTTONS ── */
+.btn {
+  display:inline-flex; align-items:center; gap:var(--space-2);
+  padding:var(--space-2) var(--space-4); border-radius:var(--radius-md);
+  font-size:var(--text-sm); font-weight:500; white-space:nowrap;
+}
+.btn-primary { background:var(--color-primary); color:#fff; }
+.btn-primary:hover { background:var(--color-primary-hover); }
+.btn-primary:active { background:var(--color-primary-active); }
+.btn-secondary { background:var(--color-surface-offset); color:var(--color-text); border:1px solid var(--color-border); }
+.btn-secondary:hover { background:var(--color-surface-dynamic); }
+.btn-ghost { color:var(--color-text-muted); padding:var(--space-2); }
+.btn-ghost:hover { color:var(--color-text); background:var(--color-surface-offset); border-radius:var(--radius-md); }
+.btn-danger { background:color-mix(in oklch,var(--color-error) 15%,var(--color-surface-offset)); color:var(--color-error); }
+.btn-danger:hover { background:color-mix(in oklch,var(--color-error) 25%,var(--color-surface-offset)); }
+.btn-full { width:100%; justify-content:center; }
+.btn:disabled { opacity:.4; pointer-events:none; }
+
+/* ── UPLOAD ZONE ── */
+.upload-zone {
+  border:1.5px dashed var(--color-border); border-radius:var(--radius-lg);
+  padding:var(--space-6) var(--space-4); text-align:center; cursor:pointer;
+  transition:all var(--transition-interactive); color:var(--color-text-muted);
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color:var(--color-primary); background:var(--color-primary-highlight); color:var(--color-text);
+}
+.upload-zone svg { margin:0 auto var(--space-2); color:var(--color-text-faint); }
+.upload-zone.has-file { border-style:solid; border-color:var(--color-success); background:color-mix(in oklch,var(--color-success) 8%,var(--color-surface-2)); }
+.upload-zone.has-file svg { color:var(--color-success); }
+
+/* ── SEGMENTS LIST ── */
+.segments-list { display:flex; flex-direction:column; gap:var(--space-3); }
+.segment-card {
+  background:var(--color-surface-offset); border:1px solid var(--color-divider);
+  border-radius:var(--radius-lg); overflow:hidden; transition:box-shadow var(--transition-interactive);
+}
+.segment-card:hover { box-shadow:var(--shadow-md); }
+.segment-card.active { border-color:var(--color-primary); box-shadow:0 0 0 2px color-mix(in oklch,var(--color-primary) 30%,transparent); }
+.segment-header {
+  display:flex; align-items:center; gap:var(--space-3); padding:var(--space-3);
+  cursor:pointer;
+}
+.segment-thumb {
+  width:56px; height:36px; border-radius:var(--radius-sm);
+  background:var(--color-surface-dynamic); overflow:hidden; flex-shrink:0;
+  display:flex; align-items:center; justify-content:center; position:relative;
+}
+.segment-thumb img { width:100%; height:100%; object-fit:cover; }
+.segment-thumb .no-img { color:var(--color-text-faint); }
+.segment-info { flex:1; min-width:0; }
+.segment-time { font-size:var(--text-xs); color:var(--color-primary); font-weight:600; font-variant-numeric:tabular-nums; }
+.segment-text { font-size:var(--text-xs); color:var(--color-text-muted); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+.segment-actions { display:flex; gap:var(--space-1); flex-shrink:0; }
+.segment-body { padding:0 var(--space-3) var(--space-3); display:none; }
+.segment-body.open { display:block; }
+.segment-img-upload { display:flex; gap:var(--space-2); align-items:center; }
+.segment-img-preview {
+  width:80px; height:52px; border-radius:var(--radius-sm); overflow:hidden;
+  background:var(--color-surface-dynamic); flex-shrink:0;
+  display:flex; align-items:center; justify-content:center;
+}
+.segment-img-preview img { width:100%; height:100%; object-fit:cover; }
+.effect-badge {
+  display:inline-flex; align-items:center; gap:4px;
+  font-size:var(--text-xs); padding:2px var(--space-2); border-radius:var(--radius-full);
+  background:var(--color-primary-highlight); color:var(--color-primary); font-weight:500;
+}
+
+/* ── PREVIEW PANEL ── */
+.preview-panel {
+  display:flex; flex-direction:column;
+  background:var(--color-bg); overflow:hidden;
+}
+.preview-top {
+  flex:1; display:flex; align-items:center; justify-content:center;
+  padding:var(--space-6); position:relative; overflow:hidden;
+}
+.preview-canvas-wrapper {
+  position:relative; width:100%; max-width:640px;
+  aspect-ratio:16/9; border-radius:var(--radius-lg); overflow:hidden;
+  background:#000; box-shadow:var(--shadow-lg);
+}
+canvas#previewCanvas { width:100%; height:100%; display:block; }
+.preview-empty {
+  position:absolute; inset:0; display:flex; flex-direction:column;
+  align-items:center; justify-content:center; color:var(--color-text-faint);
+  gap:var(--space-3); pointer-events:none;
+}
+.preview-empty svg { opacity:.4; }
+
+/* ── TIMELINE ── */
+.timeline-section {
+  border-top:1px solid var(--color-divider); background:var(--color-surface);
+  padding:var(--space-4); flex-shrink:0;
+}
+.timeline-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--space-3); }
+.timeline-header h3 { font-size:var(--text-sm); font-weight:600; }
+.timeline-controls { display:flex; align-items:center; gap:var(--space-3); }
+.timeline-track {
+  height:64px; background:var(--color-surface-offset); border-radius:var(--radius-md);
+  position:relative; overflow:hidden; border:1px solid var(--color-divider);
+}
+.timeline-block {
+  position:absolute; top:4px; bottom:4px; border-radius:var(--radius-sm);
+  background:var(--color-primary-highlight); border:1px solid var(--color-primary);
+  display:flex; align-items:center; justify-content:center; overflow:hidden;
+  cursor:pointer; transition:all var(--transition-interactive); min-width:4px;
+}
+.timeline-block:hover { background:color-mix(in oklch,var(--color-primary) 25%,transparent); }
+.timeline-block.active { background:color-mix(in oklch,var(--color-primary) 30%,transparent); border-width:2px; }
+.timeline-block img { width:100%; height:100%; object-fit:cover; opacity:.5; }
+.timeline-block .block-label { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:10px; color:var(--color-primary); font-weight:600; padding:2px; text-align:center; overflow:hidden; }
+.timeline-playhead {
+  position:absolute; top:0; bottom:0; width:2px;
+  background:var(--color-primary); pointer-events:none; z-index:10;
+  transition:left .05s linear;
+}
+.timeline-playhead::before {
+  content:''; position:absolute; top:0; left:-4px;
+  border:5px solid transparent; border-top-color:var(--color-primary);
+}
+.time-display { font-size:var(--text-xs); font-variant-numeric:tabular-nums; color:var(--color-text-muted); }
+
+/* ── TRANSPORT ── */
+.transport { display:flex; align-items:center; gap:var(--space-4); justify-content:center; margin-top:var(--space-3); }
+.transport-btn {
+  width:36px; height:36px; border-radius:var(--radius-full);
+  display:flex; align-items:center; justify-content:center;
+  background:var(--color-surface-offset); color:var(--color-text);
+  border:1px solid var(--color-border);
+}
+.transport-btn:hover { background:var(--color-surface-dynamic); }
+.transport-btn.play-btn {
+  width:44px; height:44px; background:var(--color-primary); color:#fff; border:none;
+}
+.transport-btn.play-btn:hover { background:var(--color-primary-hover); }
+
+/* ── EXPORT MODAL ── */
+.modal-backdrop {
+  position:fixed; inset:0; background:oklch(0 0 0/.7); z-index:200;
+  display:flex; align-items:center; justify-content:center; padding:var(--space-4);
+  opacity:0; pointer-events:none; transition:opacity .2s;
+}
+.modal-backdrop.open { opacity:1; pointer-events:all; }
+.modal {
+  background:var(--color-surface); border:1px solid var(--color-divider);
+  border-radius:var(--radius-xl); padding:var(--space-6); width:100%; max-width:480px;
+  box-shadow:var(--shadow-lg); transform:translateY(8px); transition:transform .2s;
+}
+.modal-backdrop.open .modal { transform:translateY(0); }
+.modal-title { font-size:var(--text-lg); font-weight:700; margin-bottom:var(--space-4); }
+.modal-progress { background:var(--color-surface-offset); border-radius:var(--radius-full); height:8px; overflow:hidden; margin:var(--space-4) 0; }
+.modal-progress-bar { height:100%; background:var(--color-primary); border-radius:var(--radius-full); width:0%; transition:width .3s; }
+.modal-status { font-size:var(--text-sm); color:var(--color-text-muted); text-align:center; }
+
+/* ── STATUS BADGE ── */
+.status-badge {
+  font-size:var(--text-xs); padding:2px var(--space-2); border-radius:var(--radius-full);
+  font-weight:600; display:inline-flex; align-items:center; gap:4px;
+}
+.status-badge.ready { background:color-mix(in oklch,var(--color-success) 15%,transparent); color:var(--color-success); }
+.status-badge.pending { background:color-mix(in oklch,var(--color-warning) 15%,transparent); color:var(--color-warning); }
+.status-badge.error { background:color-mix(in oklch,var(--color-error) 15%,transparent); color:var(--color-error); }
+
+/* ── TOOLTIP ── */
+[data-tip] { position:relative; }
+[data-tip]:hover::after {
+  content:attr(data-tip); position:absolute; bottom:calc(100% + 6px); left:50%; transform:translateX(-50%);
+  background:var(--color-surface-dynamic); color:var(--color-text); font-size:11px; padding:4px 8px;
+  border-radius:var(--radius-sm); white-space:nowrap; pointer-events:none; z-index:50;
+  border:1px solid var(--color-border);
+}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:6px;height:6px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--color-border);border-radius:3px}
+::-webkit-scrollbar-thumb:hover{background:var(--color-text-faint)}
+
+/* ── API KEY BANNER ── */
+.api-banner {
+  background:color-mix(in oklch,var(--color-warning) 12%,var(--color-surface));
+  border:1px solid color-mix(in oklch,var(--color-warning) 30%,transparent);
+  border-radius:var(--radius-md); padding:var(--space-3); font-size:var(--text-xs);
+  color:var(--color-text-muted); display:flex; gap:var(--space-2); align-items:flex-start;
+}
+.api-banner svg { color:var(--color-warning); flex-shrink:0; margin-top:1px; }
+
+/* ── MOBILE ── */
+@media (max-width:768px){
+  .workspace{grid-template-columns:1fr;grid-template-rows:auto 1fr}
+  .sidebar{max-height:50vh}
+}
+</style>
+</head>
+<body>
+
+<div class="app">
+<!-- HEADER -->
+<header>
+  <div class="logo">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-label="VideoSync logo">
+      <rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/><polygon points="10,8 16,11 10,14" fill="currentColor" stroke="none"/>
+    </svg>
+    VideoSync
+  </div>
+  <div class="header-actions">
+    <span id="projectStatus" class="status-badge pending">
+      <span>●</span> Sin segmentos
+    </span>
+    <button class="btn btn-secondary" id="exportBtn" onclick="openExportModal()" disabled>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Exportar Video
+    </button>
+    <button class="btn-ghost btn" data-theme-toggle aria-label="Cambiar tema">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>
+    </button>
+  </div>
+</header>
+
+<!-- WORKSPACE -->
+<div class="workspace">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-tabs">
+      <button class="sidebar-tab active" onclick="switchTab('setup', this)">Configurar</button>
+      <button class="sidebar-tab" onclick="switchTab('segments', this)">Segmentos</button>
+      <button class="sidebar-tab" onclick="switchTab('settings', this)">Ajustes</button>
+    </div>
+
+    <!-- TAB: SETUP -->
+    <div class="sidebar-content" id="tab-setup">
+
+      <!-- AUDIO -->
+      <div class="card">
+        <div class="card-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          Audio
+        </div>
+        <div class="upload-zone" id="audioZone" onclick="document.getElementById('audioInput').click()">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+          <div style="font-size:var(--text-sm);font-weight:500;margin-bottom:4px">Subir archivo de audio</div>
+          <div style="font-size:var(--text-xs)">MP3, WAV, M4A, OGG</div>
+        </div>
+        <input type="file" id="audioInput" accept="audio/*" style="display:none" onchange="loadAudio(this)">
+        <audio id="audioPlayer" style="display:none"></audio>
+      </div>
+
+      <!-- TRANSCRIPCIÓN -->
+      <div class="card">
+        <div class="card-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+          Transcripción con tiempos
+        </div>
+        <div style="margin-bottom:var(--space-2)">
+          <label>Formato aceptado:</label>
+          <div style="font-size:var(--text-xs);color:var(--color-text-muted);font-family:monospace;background:var(--color-surface-offset);padding:var(--space-2);border-radius:var(--radius-sm);margin-bottom:var(--space-2)">00:00 - 00:05  Texto de la frase<br>00:05 - 00:12  Otra frase aquí<br>0:12 - 0:18  También funciona así</div>
+        </div>
+        <textarea id="transcriptInput" placeholder="Pega aquí tu transcripción con tiempos...&#10;&#10;Ejemplo:&#10;00:00 - 00:05  En 1987, algo inexplicable...&#10;00:05 - 00:12  Nadie supo dar una respuesta...&#10;00:12 - 00:20  Hasta que apareció el testigo"></textarea>
+        <button class="btn btn-primary btn-full" style="margin-top:var(--space-3)" onclick="parseTranscript()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>
+          Generar Segmentos
+        </button>
+      </div>
+
+    </div>
+
+    <!-- BULK IMAGE DROP -->
+    <div class="card">
+      <div class="card-title">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        Carga masiva de imágenes
+      </div>
+      <div style="font-size:var(--text-xs);color:var(--color-text-muted);margin-bottom:var(--space-3)">
+        Arrastra varias imágenes a la vez. Se asignarán en orden numérico según el nombre del archivo.
+      </div>
+      <div class="upload-zone" id="bulkImageZone"
+           ondragover="event.preventDefault();this.classList.add('drag-over')"
+           ondragleave="this.classList.remove('drag-over')"
+           ondrop="handleBulkImageDrop(event)"
+           onclick="document.getElementById('bulkImageInput').click()">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <div style="font-size:var(--text-sm);font-weight:500;margin-bottom:4px">Arrastra imágenes aquí</div>
+        <div style="font-size:var(--text-xs)">o haz clic para seleccionar — se ordenan por número en el nombre</div>
+      </div>
+      <input type="file" id="bulkImageInput" accept="image/*" multiple style="display:none" onchange="handleBulkImageFiles(this.files)">
+      <div id="bulkImageStatus" style="font-size:var(--text-xs);color:var(--color-text-muted);margin-top:var(--space-2);display:none"></div>
+    </div>
+
+    <!-- TAB: SEGMENTS -->
+    <div class="sidebar-content" id="tab-segments" style="display:none">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-shrink:0">
+        <span style="font-size:var(--text-sm);font-weight:600">Segmentos</span>
+        <span id="segmentCount" style="font-size:var(--text-xs);color:var(--color-text-muted)">0 segmentos</span>
+      </div>
+      <div class="segments-list" id="segmentsList">
+        <div style="text-align:center;padding:var(--space-8);color:var(--color-text-faint)">
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="margin:0 auto var(--space-2)"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>
+          <div style="font-size:var(--text-sm)">Genera segmentos primero</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: SETTINGS -->
+    <div class="sidebar-content" id="tab-settings" style="display:none">
+      <div class="card">
+        <div class="card-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+          Efectos Ken Burns
+        </div>
+        <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+          <div>
+            <label>Intensidad del zoom</label>
+            <input type="range" id="zoomIntensity" min="1" max="3" step="0.5" value="1.5" style="width:100%;accent-color:var(--color-primary)">
+            <div style="display:flex;justify-content:space-between;font-size:var(--text-xs);color:var(--color-text-muted)"><span>Suave</span><span>Intenso</span></div>
+          </div>
+          <div>
+            <label>Asignar efectos</label>
+            <select id="effectMode" style="width:100%">
+              <option value="random">Aleatorio por segmento</option>
+              <option value="sequence">Secuencial (varía automáticamente)</option>
+              <option value="zoomin">Solo Zoom In</option>
+              <option value="zoomout">Solo Zoom Out</option>
+              <option value="pan">Solo Pan horizontal</option>
+            </select>
+          </div>
+          <button class="btn btn-secondary btn-full" onclick="reassignEffects()">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 .49-3.51"/></svg>
+            Reasignar efectos
+          </button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/></svg>
+          Exportar con Shotstack
+        </div>
+        <div class="api-banner" style="margin-bottom:var(--space-3)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          La exportación con API requiere una key de Shotstack. Sin API, usa la exportación local del navegador (Canvas Recorder).
+        </div>
+        <label>Shotstack API Key (opcional)</label>
+        <input type="text" id="shotstackKey" placeholder="sh-xxxxxxxxxxxx" style="margin-bottom:var(--space-3)">
+        <div>
+          <label>Resolución de salida</label>
+          <select id="outputRes" style="width:100%">
+            <option value="hd">HD 1280×720</option>
+            <option value="sd">SD 854×480</option>
+            <option value="1080">Full HD 1920×1080</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Créditos del proyecto
+        </div>
+        <div style="font-size:var(--text-xs);color:var(--color-text-muted);line-height:1.6">
+          VideoSync — Editor de video documental<br>
+          Exportación local vía Canvas API<br>
+          Exportación HD vía Shotstack API
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- PREVIEW PANEL -->
+  <main class="preview-panel">
+    <div class="preview-top">
+      <div class="preview-canvas-wrapper">
+        <canvas id="previewCanvas" width="1280" height="720"></canvas>
+        <div class="preview-empty" id="previewEmpty">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1"><rect x="2" y="3" width="20" height="14" rx="2"/><polygon points="10,8 16,11 10,14"/></svg>
+          <span style="font-size:var(--text-sm)">Vista previa aparecerá aquí</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- TIMELINE -->
+    <div class="timeline-section">
+      <div class="timeline-header">
+        <h3>Línea de tiempo</h3>
+        <div class="timeline-controls">
+          <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
+        </div>
+      </div>
+      <div class="timeline-track" id="timelineTrack" onclick="seekTimeline(event)">
+        <div class="timeline-playhead" id="playhead" style="left:0%"></div>
+      </div>
+      <div class="transport">
+        <button class="transport-btn btn" data-tip="Ir al inicio" onclick="seekTo(0)">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="19 20 9 12 19 4"/><line x1="5" y1="4" x2="5" y2="20"/></svg>
+        </button>
+        <button class="transport-btn play-btn btn" id="playBtn" onclick="togglePlay()">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" id="playIcon"><polygon points="5 3 19 12 5 21 5 3" fill="currentColor" stroke="none"/></svg>
+        </button>
+        <button class="transport-btn btn" data-tip="Ir al final" onclick="seekToEnd()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="5 4 15 12 5 20"/><line x1="19" y1="4" x2="19" y2="20"/></svg>
+        </button>
+      </div>
+    </div>
+  </main>
+</div>
+</div>
+
+<!-- EXPORT MODAL -->
+<div class="modal-backdrop" id="exportModal">
+  <div class="modal">
+    <div class="modal-title" id="exportTitle">Exportar Video</div>
+    <div id="exportOptions">
+      <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4)">
+        Elige cómo exportar tu video. La exportación local funciona sin API keys.
+      </p>
+      <div style="display:flex;flex-direction:column;gap:var(--space-3)">
+        <button class="btn btn-primary btn-full" onclick="exportLocal()" style="padding:var(--space-3)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+          Exportar local (Canvas Recorder)
+          <span style="font-size:var(--text-xs);opacity:.7;margin-left:auto">Gratis</span>
+        </button>
+        <button class="btn btn-secondary btn-full" onclick="exportShotstack()" style="padding:var(--space-3)">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Exportar con Shotstack API
+          <span style="font-size:var(--text-xs);opacity:.7;margin-left:auto">HD</span>
+        </button>
+      </div>
+    </div>
+    <div id="exportProgress" style="display:none">
+      <div class="modal-progress"><div class="modal-progress-bar" id="progressBar"></div></div>
+      <div class="modal-status" id="exportStatus">Preparando...</div>
+    </div>
+    <div style="margin-top:var(--space-4);text-align:right">
+      <button class="btn btn-ghost" onclick="closeExportModal()">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────
+const state = {
+  segments: [],
+  audioDuration: 0,
+  currentTime: 0,
+  isPlaying: false,
+  animFrame: null,
+  startWallTime: null,
+  startAudioTime: 0,
+  activeSegmentIdx: -1,
+  kenBurnsEffects: ['zoomin','zoomout','pan-left','pan-right','diagonal-tl','diagonal-br'],
+};
+
+const canvas = document.getElementById('previewCanvas');
+const ctx = canvas.getContext('2d');
+const audio = document.getElementById('audioPlayer');
+
+// ─── THEME TOGGLE ────────────────────────────────────────────
+(function(){
+  const t=document.querySelector('[data-theme-toggle]'),r=document.documentElement;
+  let d='dark'; r.setAttribute('data-theme',d);
+  t&&t.addEventListener('click',()=>{
+    d=d==='dark'?'light':'dark'; r.setAttribute('data-theme',d);
+  });
+})();
+
+// ─── TAB SWITCHING ───────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.sidebar-content').forEach(el => el.style.display='none');
+  document.querySelectorAll('.sidebar-tab').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-'+name).style.display='flex';
+  btn.classList.add('active');
+}
+
+// ─── AUDIO LOADING ───────────────────────────────────────────
+function loadAudio(input) {
+  const file = input.files[0]; if(!file) return;
+  const url = URL.createObjectURL(file);
+  audio.src = url;
+  audio.onloadedmetadata = () => {
+    state.audioDuration = audio.duration;
+    const zone = document.getElementById('audioZone');
+    zone.classList.add('has-file');
+    zone.innerHTML = `
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><polyline points="20 6 9 17 4 12"/></svg>
+      <div style="font-size:var(--text-sm);font-weight:500;margin-bottom:4px">${file.name}</div>
+      <div style="font-size:var(--text-xs)">${formatTime(audio.duration)} · Cargado</div>`;
+    updateTimeDisplay();
+  };
+}
+
+// ─── TRANSCRIPT PARSING ──────────────────────────────────────
+function parseTranscript() {
+  const raw = document.getElementById('transcriptInput').value.trim();
+  if(!raw) { alert('Pega la transcripción primero.'); return; }
+
+  const lines = raw.split('\n').filter(l => l.trim());
+  const parsed = [];
+
+  for(const line of lines) {
+    // Acepta: 00:00 - 00:05  texto  o  0:00-0:05 texto
+    const m = line.match(/(\d+:\d+(?:\.\d+)?)\s*[-–]\s*(\d+:\d+(?:\.\d+)?)\s+(.*)/);
+    if(!m) continue;
+    const start = parseTimecode(m[1]);
+    const end = parseTimecode(m[2]);
+    const text = m[3].trim();
+    if(end > start) parsed.push({ start, end, text, image:null, imageUrl:null, effect:null });
+  }
+
+  if(!parsed.length) {
+    alert('No se encontraron segmentos. Verifica el formato:\n00:00 - 00:05  Tu texto aquí');
+    return;
+  }
+
+  state.segments = parsed;
+  assignEffects();
+  renderSegments();
+  renderTimeline();
+  updateProjectStatus();
+  switchTab('segments', document.querySelectorAll('.sidebar-tab')[1]);
+}
+
+function parseTimecode(tc) {
+  const parts = tc.split(':');
+  return parseInt(parts[0])*60 + parseFloat(parts[1]);
+}
+
+// ─── EFFECTS ─────────────────────────────────────────────────
+const effectLabels = {
+  'zoomin':'Zoom In','zoomout':'Zoom Out',
+  'pan-left':'Pan ←','pan-right':'Pan →',
+  'diagonal-tl':'Diagonal ↗','diagonal-br':'Diagonal ↙'
+};
+
+function assignEffects() {
+  const mode = document.getElementById('effectMode').value;
+  const effects = state.kenBurnsEffects;
+  state.segments.forEach((seg, i) => {
+    if(mode === 'random') seg.effect = effects[Math.floor(Math.random()*effects.length)];
+    else if(mode === 'sequence') seg.effect = effects[i % effects.length];
+    else if(mode === 'zoomin') seg.effect = 'zoomin';
+    else if(mode === 'zoomout') seg.effect = 'zoomout';
+    else if(mode === 'pan') seg.effect = i%2===0?'pan-left':'pan-right';
+  });
+}
+
+function reassignEffects() {
+  if(!state.segments.length) return;
+  assignEffects();
+  renderSegments();
+}
+
+// ─── RENDER SEGMENTS LIST ────────────────────────────────────
+function renderSegments() {
+  const list = document.getElementById('segmentsList');
+  document.getElementById('segmentCount').textContent = state.segments.length + ' segmentos';
+  list.innerHTML = '';
+
+  state.segments.forEach((seg, i) => {
+    const div = document.createElement('div');
+    div.className = 'segment-card';
+    div.id = 'seg-card-'+i;
+    div.innerHTML = `
+      <div class="segment-header" onclick="toggleSegment(${i})">
+        <div class="segment-thumb" id="seg-thumb-${i}">
+          ${seg.imageUrl ? `<img src="${seg.imageUrl}" alt="img">` : `<svg class="no-img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`}
+        </div>
+        <div class="segment-info">
+          <div class="segment-time">${formatTime(seg.start)} → ${formatTime(seg.end)}</div>
+          <div class="segment-text">${seg.text}</div>
+        </div>
+        <div class="segment-actions">
+          <span class="effect-badge" title="${effectLabels[seg.effect]||seg.effect}">${(effectLabels[seg.effect]||seg.effect||'?').split(' ')[0]}</span>
+          <button class="btn-ghost btn" style="padding:4px" onclick="event.stopPropagation();removeSegment(${i})" data-tip="Eliminar">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="segment-body" id="seg-body-${i}">
+        <div class="segment-img-upload">
+          <div class="segment-img-preview" id="seg-preview-${i}">
+            ${seg.imageUrl ? `<img src="${seg.imageUrl}" alt="preview">` : `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--color-text-faint)"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`}
+          </div>
+          <div style="flex:1">
+            <label>Imagen del segmento</label>
+            <button class="btn btn-secondary btn-full" onclick="pickImage(${i})" style="margin-bottom:var(--space-2)">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/></svg>
+              ${seg.imageUrl ? 'Cambiar imagen' : 'Subir imagen'}
+            </button>
+            <div>
+              <label>Efecto</label>
+              <select onchange="changeEffect(${i},this.value)" style="width:100%">
+                ${state.kenBurnsEffects.map(e=>`<option value="${e}" ${seg.effect===e?'selected':''}>${effectLabels[e]}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+        </div>
+        <input type="file" id="img-input-${i}" accept="image/*" style="display:none" onchange="loadImage(${i},this)">
+      </div>`;
+    list.appendChild(div);
+  });
+
+  updateProjectStatus();
+}
+
+function toggleSegment(i) {
+  const body = document.getElementById('seg-body-'+i);
+  body.classList.toggle('open');
+  document.getElementById('seg-card-'+i).classList.toggle('active', body.classList.contains('open'));
+}
+
+function removeSegment(i) {
+  state.segments.splice(i,1);
+  renderSegments();
+  renderTimeline();
+  updateProjectStatus();
+}
+
+function pickImage(i) {
+  document.getElementById('img-input-'+i).click();
+}
+
+function loadImage(i, input) {
+  const file = input.files[0]; if(!file) return;
+  const url = URL.createObjectURL(file);
+  const img = new Image();
+  img.onload = () => {
+    state.segments[i].image = img;
+    state.segments[i].imageUrl = url;
+    // Update thumb
+    const thumb = document.getElementById('seg-thumb-'+i);
+    thumb.innerHTML = `<img src="${url}" alt="thumb">`;
+    // Update preview
+    const prev = document.getElementById('seg-preview-'+i);
+    prev.innerHTML = `<img src="${url}" alt="preview">`;
+    // Update button text
+    const btn = document.querySelector(`#seg-card-${i} .segment-body .btn`);
+    if(btn) btn.innerHTML = `<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/></svg> Cambiar imagen`;
+    renderTimeline();
+    updateProjectStatus();
+    // Draw frame
+    const seg = state.segments[i];
+    if(state.currentTime >= seg.start && state.currentTime < seg.end) drawFrame(state.currentTime);
+  };
+  img.src = url;
+}
+
+function changeEffect(i, val) {
+  state.segments[i].effect = val;
+  renderSegments();
+}
+
+// ─── TIMELINE ────────────────────────────────────────────────
+function renderTimeline() {
+  const track = document.getElementById('timelineTrack');
+  // Remove old blocks
+  track.querySelectorAll('.timeline-block').forEach(el => el.remove());
+
+  const total = Math.max(state.audioDuration, getMaxSegmentEnd());
+  if(!total || !state.segments.length) return;
+
+  state.segments.forEach((seg, i) => {
+    const block = document.createElement('div');
+    block.className = 'timeline-block';
+    block.style.left = (seg.start/total*100)+'%';
+    block.style.width = ((seg.end-seg.start)/total*100)+'%';
+    block.onclick = (e) => { e.stopPropagation(); seekTo(seg.start); };
+    if(seg.imageUrl) {
+      block.innerHTML = `<img src="${seg.imageUrl}" alt="">`;
+    } else {
+      block.innerHTML = `<span class="block-label">${i+1}</span>`;
+    }
+    track.appendChild(block);
+  });
+}
+
+function seekTimeline(e) {
+  const rect = e.currentTarget.getBoundingClientRect();
+  const pct = (e.clientX - rect.left) / rect.width;
+  const total = Math.max(state.audioDuration, getMaxSegmentEnd());
+  seekTo(pct * total);
+}
+
+function seekTo(t) {
+  state.currentTime = Math.max(0, Math.min(t, Math.max(state.audioDuration, getMaxSegmentEnd())));
+  if(audio.src) audio.currentTime = state.currentTime;
+  updatePlayhead();
+  updateTimeDisplay();
+  drawFrame(state.currentTime);
+}
+
+function seekToEnd() { seekTo(Math.max(state.audioDuration, getMaxSegmentEnd())); }
+
+function updatePlayhead() {
+  const total = Math.max(state.audioDuration, getMaxSegmentEnd(), 1);
+  document.getElementById('playhead').style.left = (state.currentTime/total*100)+'%';
+}
+
+function updateTimeDisplay() {
+  const total = Math.max(state.audioDuration, getMaxSegmentEnd());
+  document.getElementById('timeDisplay').textContent = formatTime(state.currentTime)+' / '+formatTime(total);
+}
+
+function getMaxSegmentEnd() {
+  if(!state.segments.length) return 0;
+  return Math.max(...state.segments.map(s=>s.end));
+}
+
+// ─── PLAYBACK ────────────────────────────────────────────────
+function togglePlay() {
+  if(state.isPlaying) pausePlayback();
+  else startPlayback();
+}
+
+function startPlayback() {
+  if(!state.segments.length) return;
+  state.isPlaying = true;
+  document.getElementById('playIcon').innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>';
+  document.getElementById('previewEmpty').style.display = 'none';
+  if(audio.src) { audio.currentTime = state.currentTime; audio.play(); }
+  state.startWallTime = performance.now();
+  state.startAudioTime = state.currentTime;
+  _cacheDOM();
+  _frameCount = 0;
+  _lastSegIdx = -1; _lastSeg = null;
+  // Preview: low quality for performance
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'low';
+  animLoop();
+}
+
+function pausePlayback() {
+  state.isPlaying = false;
+  document.getElementById('playIcon').innerHTML = '<polygon points="5 3 19 12 5 21 5 3" fill="currentColor" stroke="none"/>';
+  if(audio.src) audio.pause();
+  clearTimeout(state.animFrame);
+  // Restore quality for seeking/still frames
+  ctx.imageSmoothingQuality = 'high';
+}
+
+// ─── CACHED DOM REFS (avoid per-frame lookups) ──────────────
+let _elPlayhead, _elTimeDisplay, _elPreviewEmpty, _elZoom, _timelineBlocks;
+let _frameCount = 0;
+let _cachedZoom = 1.5;
+let _cachedTotal = 0;
+let _lastSegIdx = -1;
+let _lastSeg = null;
+
+function _cacheDOM() {
+  _elPlayhead = document.getElementById('playhead');
+  _elTimeDisplay = document.getElementById('timeDisplay');
+  _elPreviewEmpty = document.getElementById('previewEmpty');
+  _elZoom = document.getElementById('zoomIntensity');
+  _timelineBlocks = document.querySelectorAll('.timeline-block');
+  _cachedZoom = parseFloat(_elZoom?.value) || 1.5;
+  _cachedTotal = Math.max(state.audioDuration, getMaxSegmentEnd());
+}
+
+function _findSegFast(t) {
+  // Check cached segment first (hot path)
+  if (_lastSeg && t >= _lastSeg.start && t < _lastSeg.end) return _lastSegIdx;
+  // Check next segment (sequential playback)
+  const next = _lastSegIdx + 1;
+  if (next < state.segments.length) {
+    const ns = state.segments[next];
+    if (t >= ns.start && t < ns.end) { _lastSegIdx = next; _lastSeg = ns; return next; }
+  }
+  // Fallback: linear scan
+  for (let i = 0; i < state.segments.length; i++) {
+    const s = state.segments[i];
+    if (t >= s.start && t < s.end) { _lastSegIdx = i; _lastSeg = s; return i; }
+  }
+  _lastSegIdx = -1; _lastSeg = null;
+  return -1;
+}
+
+// PREVIEW at 23fps via setTimeout (saves ~60% CPU vs 60fps rAF)
+const PREVIEW_FPS = 23;
+const PREVIEW_INTERVAL = 1000 / PREVIEW_FPS; // ~43ms
+
+function animLoop() {
+  if(!state.isPlaying) return;
+  const now = performance.now();
+  const elapsed = (now - state.startWallTime) / 1000;
+  const t = state.startAudioTime + elapsed;
+  if(t >= _cachedTotal) { seekTo(0); pausePlayback(); return; }
+  state.currentTime = t;
+  // Update UI every frame at 23fps (already throttled)
+  _elPlayhead.style.left = (t / _cachedTotal * 100) + '%';
+  _elTimeDisplay.textContent = formatTime(t) + ' / ' + formatTime(_cachedTotal);
+  drawFrameFast(t);
+  highlightActiveSegmentFast(t);
+  // setTimeout at 23fps instead of requestAnimationFrame at 60fps
+  state.animFrame = setTimeout(animLoop, PREVIEW_INTERVAL);
+}
+
+// ─── KEN BURNS DRAW (OPTIMIZED) ─────────────────────────────
+function drawFrameFast(t) {
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0,0,1280,720);
+
+  const idx = _findSegFast(t);
+  const seg = idx >= 0 ? state.segments[idx] : null;
+  if(!seg || !seg.image) {
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.font = '24px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(formatTime(t), 640, 370);
+    if(seg) drawSubtitle(seg.text);
+    return;
+  }
+
+  const progress = (t - seg.start) / (seg.end - seg.start);
+  applyKenBurns(seg.image, seg.effect, Math.max(0, Math.min(1, progress)), _cachedZoom);
+  drawSubtitle(seg.text);
+}
+
+// Keep original for non-playback use (seeking, etc.)
+function drawFrame(t) {
+  ctx.clearRect(0,0,1280,720);
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0,0,1280,720);
+  const seg = state.segments.find(s => t >= s.start && t < s.end);
+  if(!seg || !seg.image) {
+    ctx.fillStyle = 'rgba(255,255,255,0.2)';
+    ctx.font = '24px Inter, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(formatTime(t), 640, 370);
+    if(seg) drawSubtitle(seg.text);
+    return;
+  }
+  document.getElementById('previewEmpty').style.display = 'none';
+  const progress = Math.max(0, Math.min(1, (t - seg.start) / (seg.end - seg.start)));
+  const zoom = parseFloat(document.getElementById('zoomIntensity').value) || 1.5;
+  applyKenBurns(seg.image, seg.effect, progress, zoom);
+  drawSubtitle(seg.text);
+}
+
+function applyKenBurns(img, effect, progress, zoomFactor) {
+  const cw = 1280, ch = 720;
+  const ease = easeInOut(progress);
+
+  // Base scale with extra 5% padding to prevent ANY edge exposure
+  const baseScale = Math.max(cw/img.width, ch/img.height) * 1.05;
+  let scale, tx, ty;
+
+  switch(effect) {
+    case 'zoomin':
+      scale = baseScale * (1 + (zoomFactor-1) * ease * 0.25);
+      tx = 0; ty = 0;
+      break;
+    case 'zoomout':
+      scale = baseScale * (1 + (zoomFactor-1) * (1-ease) * 0.25);
+      tx = 0; ty = 0;
+      break;
+    case 'pan-left':
+      scale = baseScale * 1.15;
+      tx = -img.width * scale * ease * 0.04;
+      ty = 0;
+      break;
+    case 'pan-right':
+      scale = baseScale * 1.15;
+      tx = img.width * scale * ease * 0.04;
+      ty = 0;
+      break;
+    case 'diagonal-tl':
+      scale = baseScale * (1 + (zoomFactor-1) * ease * 0.18);
+      tx = -img.width * scale * ease * 0.03;
+      ty = -img.height * scale * ease * 0.03;
+      break;
+    case 'diagonal-br':
+      scale = baseScale * (1 + (zoomFactor-1) * (1-ease) * 0.18);
+      tx = img.width * scale * (1-ease) * 0.03;
+      ty = img.height * scale * (1-ease) * 0.03;
+      break;
+    default:
+      scale = baseScale;
+      tx = 0; ty = 0;
+  }
+
+  const dw = img.width * scale;
+  const dh = img.height * scale;
+  let dx = (cw - dw) / 2 + tx;
+  let dy = (ch - dh) / 2 + ty;
+
+  // CLAMP: image must ALWAYS fully cover the canvas (no visible edges)
+  // Right edge: dx + dw must be >= cw  →  dx >= cw - dw
+  // Left edge:  dx must be <= 0
+  if (dx > 0) dx = 0;
+  if (dx + dw < cw) dx = cw - dw;
+  // Bottom edge: dy + dh must be >= ch  →  dy >= ch - dh
+  // Top edge:    dy must be <= 0
+  if (dy > 0) dy = 0;
+  if (dy + dh < ch) dy = ch - dh;
+
+  ctx.drawImage(img, dx, dy, dw, dh);
+}
+
+function easeInOut(t) {
+  return t < 0.5 ? 2*t*t : -1+(4-2*t)*t;
+}
+
+function drawSubtitle(text) {
+  if(!text) return;
+  const cw = 1280, ch = 720;
+  ctx.save();
+  // Background
+  ctx.fillStyle = 'rgba(0,0,0,0.6)';
+  const metrics = ctx.measureText(text);
+  const padding = 20;
+  ctx.font = 'bold 28px Inter, sans-serif';
+  const tw = ctx.measureText(text).width;
+  const bw = Math.min(tw + padding*2, cw - 80);
+  ctx.beginPath();
+  ctx.roundRect(cw/2 - bw/2, ch - 90, bw, 52, 8);
+  ctx.fill();
+  // Text
+  ctx.fillStyle = '#ffffff';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, cw/2, ch - 64, cw - 100);
+  ctx.restore();
+}
+
+// ─── ACTIVE SEGMENT HIGHLIGHT (OPTIMIZED) ───────────────────
+function highlightActiveSegmentFast(t) {
+  const idx = _lastSegIdx;
+  if(idx === state.activeSegmentIdx) return;
+  // Remove old
+  if(state.activeSegmentIdx >= 0 && _timelineBlocks[state.activeSegmentIdx]) {
+    _timelineBlocks[state.activeSegmentIdx].classList.remove('active');
+  }
+  // Add new
+  if(idx >= 0 && _timelineBlocks[idx]) {
+    _timelineBlocks[idx].classList.add('active');
+  }
+  state.activeSegmentIdx = idx;
+}
+
+function highlightActiveSegment(t) {
+  const idx = state.segments.findIndex(s => t >= s.start && t < s.end);
+  if(idx === state.activeSegmentIdx) return;
+  state.activeSegmentIdx = idx;
+  document.querySelectorAll('.timeline-block').forEach((b,i) => {
+    b.classList.toggle('active', i === idx);
+  });
+}
+
+// ─── PROJECT STATUS ──────────────────────────────────────────
+function updateProjectStatus() {
+  const badge = document.getElementById('projectStatus');
+  const exportBtn = document.getElementById('exportBtn');
+  const withImg = state.segments.filter(s=>s.image).length;
+  const total = state.segments.length;
+  if(total === 0) {
+    badge.className = 'status-badge pending'; badge.innerHTML = '<span>●</span> Sin segmentos';
+    exportBtn.disabled = true;
+  } else if(withImg === total) {
+    badge.className = 'status-badge ready'; badge.innerHTML = `<span>●</span> Listo (${total} segs)`;
+    exportBtn.disabled = false;
+  } else {
+    badge.className = 'status-badge pending'; badge.innerHTML = `<span>●</span> ${withImg}/${total} imágenes`;
+    exportBtn.disabled = withImg === 0;
+  }
+}
+
+// ─── EXPORT ──────────────────────────────────────────────────
+function openExportModal() { document.getElementById('exportModal').classList.add('open'); }
+function closeExportModal() {
+  document.getElementById('exportModal').classList.remove('open');
+  document.getElementById('exportOptions').style.display='block';
+  document.getElementById('exportProgress').style.display='none';
+  document.getElementById('progressBar').style.width='0%';
+}
+
+// LOCAL EXPORT via MediaRecorder + Canvas — 60fps HIGH QUALITY
+async function exportLocal() {
+  if(!state.segments.length) return;
+  document.getElementById('exportOptions').style.display='none';
+  document.getElementById('exportProgress').style.display='block';
+  setProgress(0,'Iniciando grabación en 60fps alta calidad...');
+
+  // Switch to HIGH quality for export
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+
+  try {
+    const stream = canvas.captureStream(60); // 60fps capture
+    if(audio.src) {
+      const actx = new AudioContext();
+      const dest = actx.createMediaStreamDestination();
+      const src = actx.createMediaElementSource(audio);
+      src.connect(dest); src.connect(actx.destination);
+      stream.addTrack(dest.stream.getAudioTracks()[0]);
+    }
+    const recorder = new MediaRecorder(stream, { mimeType: getSupportedMimeType(), videoBitsPerSecond: 8000000 }); // 8Mbps for quality
+    const chunks = [];
+    recorder.ondataavailable = e => { if(e.data.size>0) chunks.push(e.data); };
+    recorder.onstop = () => {
+      setProgress(95,'Creando archivo...');
+      const blob = new Blob(chunks, { type: recorder.mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      const ext = recorder.mimeType.includes('webm') ? 'webm' : 'mp4';
+      a.href = url; a.download = 'videosync-export-60fps.'+ext; a.click();
+      URL.revokeObjectURL(url);
+      setProgress(100,'¡Descarga iniciada! (60fps)');
+      // Restore preview quality
+      ctx.imageSmoothingQuality = 'low';
+      setTimeout(closeExportModal, 2000);
+    };
+
+    recorder.start(100);
+    setProgress(10,'Grabando a 60fps...');
+    seekTo(0);
+    if(audio.src) { audio.currentTime=0; audio.play(); }
+
+    const total = Math.max(state.audioDuration, getMaxSegmentEnd());
+    const startTime = performance.now();
+    // Cache zoom for export
+    const exportZoom = parseFloat(document.getElementById('zoomIntensity').value) || 1.5;
+
+    const renderExport = () => {
+      const elapsed = (performance.now() - startTime) / 1000;
+      const t = elapsed;
+      const pct = Math.min(t/total, 1);
+      // Update progress every ~10 frames to not slow down render
+      if(Math.floor(t*10) !== Math.floor((t-0.017)*10)) {
+        setProgress(10 + pct*80, `Grabando 60fps: ${formatTime(t)} / ${formatTime(total)}`);
+      }
+      state.currentTime = t;
+      // Use high quality draw for export
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0,0,1280,720);
+      const seg = state.segments.find(s => t >= s.start && t < s.end);
+      if(seg && seg.image) {
+        const progress = Math.max(0, Math.min(1, (t - seg.start) / (seg.end - seg.start)));
+        applyKenBurns(seg.image, seg.effect, progress, exportZoom);
+        drawSubtitle(seg.text);
+      }
+      if(t < total) requestAnimationFrame(renderExport);
+      else { setTimeout(() => recorder.stop(), 300); }
+    };
+    requestAnimationFrame(renderExport);
+
+  } catch(err) {
+    setProgress(0, 'Error: '+err.message);
+    console.error(err);
+  }
+}
+
+// SHOTSTACK EXPORT
+async function exportShotstack() {
+  const apiKey = document.getElementById('shotstackKey').value.trim();
+  if(!apiKey) { alert('Ingresa tu Shotstack API Key en Ajustes primero.'); return; }
+
+  document.getElementById('exportOptions').style.display='none';
+  document.getElementById('exportProgress').style.display='block';
+  setProgress(10,'Construyendo payload para Shotstack...');
+
+  const res = document.getElementById('outputRes').value;
+  const resMap = { hd:{w:1280,h:720}, sd:{w:854,h:480}, '1080':{w:1920,h:1080} };
+  const {w,h} = resMap[res];
+
+  // Build clips array
+  const clips = state.segments.map(seg => ({
+    asset: { type:'image', src: seg.imageUrl || '' },
+    start: seg.start,
+    length: seg.end - seg.start,
+    effect: mapEffect(seg.effect),
+    transition: { in:'fade', out:'fade' }
+  }));
+
+  const payload = {
+    timeline: {
+      soundtrack: audio.src ? { src: audio.src, effect:'fadeOut' } : undefined,
+      tracks: [{ clips }]
+    },
+    output: { format:'mp4', resolution: res === '1080' ? 'hd' : res, size:{width:w, height:h} }
+  };
+
+  try {
+    setProgress(30,'Enviando a Shotstack...');
+    const resp = await fetch('https://api.shotstack.io/v1/render', {
+      method:'POST',
+      headers:{ 'Content-Type':'application/json', 'x-api-key': apiKey },
+      body: JSON.stringify(payload)
+    });
+    const data = await resp.json();
+    if(!data.response?.id) throw new Error(data.message || 'Error de API');
+    const renderId = data.response.id;
+    setProgress(50,'Renderizando en Shotstack (puede tomar 1-2 min)...');
+
+    // Poll status
+    let attempts = 0;
+    const poll = async () => {
+      attempts++;
+      const r = await fetch(`https://api.shotstack.io/v1/render/${renderId}`,{ headers:{'x-api-key':apiKey} });
+      const d = await r.json();
+      const status = d.response?.status;
+      if(status === 'done') {
+        setProgress(100,'¡Listo! Descargando...');
+        window.open(d.response.url,'_blank');
+        setTimeout(closeExportModal,2000);
+      } else if(status === 'failed') {
+        setProgress(0,'Error en Shotstack: '+d.response.error);
+      } else if(attempts < 60) {
+        setProgress(50 + attempts, `Renderizando (${status})...`);
+        setTimeout(poll, 3000);
+      } else {
+        setProgress(0,'Tiempo de espera agotado. Revisa tu dashboard de Shotstack.');
+      }
+    };
+    setTimeout(poll, 3000);
+
+  } catch(err) {
+    setProgress(0,'Error: '+err.message);
+  }
+}
+
+function mapEffect(e) {
+  const m = { 'zoomin':'zoomIn','zoomout':'zoomOut','pan-left':'slideLeft','pan-right':'slideRight','diagonal-tl':'slideUpLeft','diagonal-br':'slideDownRight' };
+  return m[e] || 'zoomIn';
+}
+
+function getSupportedMimeType() {
+  const types = ['video/webm;codecs=vp9,opus','video/webm;codecs=vp8,opus','video/webm','video/mp4'];
+  return types.find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+}
+
+function setProgress(pct, msg) {
+  document.getElementById('progressBar').style.width = pct+'%';
+  document.getElementById('exportStatus').textContent = msg;
+}
+
+// ─── UTILS ───────────────────────────────────────────────────
+function formatTime(s) {
+  if(isNaN(s)) return '0:00';
+  const m = Math.floor(s/60), sec = Math.floor(s%60);
+  return m+':'+(sec<10?'0':'')+sec;
+}
+
+// ─── INIT ────────────────────────────────────────────────────
+
+    // ── BULK IMAGE DROP ──────────────────────────────────────────────
+    function handleBulkImageDrop(e) {
+      e.preventDefault();
+      document.getElementById('bulkImageZone').classList.remove('drag-over');
+      const files = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
+      if (!files.length) return;
+      handleBulkImageFiles(files);
+    }
+
+    function handleBulkImageFiles(filesInput) {
+      const files = Array.from(filesInput);
+      if (!files.length) return;
+
+      // Sort files by the first number found in the filename, then alphabetically
+      files.sort((a, b) => {
+        const numA = extractNumber(a.name);
+        const numB = extractNumber(b.name);
+        if (numA !== null && numB !== null) return numA - numB;
+        if (numA !== null) return -1;
+        if (numB !== null) return 1;
+        return a.name.localeCompare(b.name);
+      });
+
+      // ★ FILTRO ANTI-DUPLICADOS: solo posiciones impares (1, 3, 5...)
+      // Las pares (2, 4, 6...) son duplicadas de Whisk y se omiten
+      const filteredFiles = files.filter((_, i) => i % 2 === 0);
+
+      const status = document.getElementById('bulkImageStatus');
+      status.style.display = 'block';
+      status.style.color = 'var(--color-warning)';
+      status.textContent = `Filtrando: ${files.length} totales → ${filteredFiles.length} originales (${files.length - filteredFiles.length} duplicadas omitidas). Cargando...`;
+
+      if (!state.segments.length) {
+        status.style.color = 'var(--color-error)';
+        status.textContent = '⚠ Genera los segmentos de transcripción primero.';
+        return;
+      }
+
+      let loaded = 0;
+      const totalToAssign = Math.min(filteredFiles.length, state.segments.length);
+
+      // Si faltan imágenes para cubrir todos los segmentos, la última se repite
+      filteredFiles.forEach((file, fi) => {
+        if (fi >= state.segments.length) return;
+        const url = URL.createObjectURL(file);
+        const img = new Image();
+        img.onload = () => {
+          state.segments[fi].image = img;
+          state.segments[fi].imageUrl = url;
+          loaded++;
+          status.textContent = `Cargando originales... ${loaded}/${totalToAssign}`;
+
+          // Si es la última imagen y faltan segmentos, rellenar con esta misma
+          if (loaded === totalToAssign) {
+            if (filteredFiles.length < state.segments.length) {
+              const lastImg = img;
+              const lastUrl = url;
+              for (let s = filteredFiles.length; s < state.segments.length; s++) {
+                state.segments[s].image = lastImg;
+                state.segments[s].imageUrl = lastUrl;
+              }
+            }
+            renderSegments();
+            renderTimeline();
+            updateProjectStatus();
+            const zone = document.getElementById('bulkImageZone');
+            zone.classList.add('has-file');
+            status.style.color = 'var(--color-success)';
+            const dupes = files.length - filteredFiles.length;
+            const filled = Math.min(filteredFiles.length, state.segments.length);
+            const repeated = Math.max(0, state.segments.length - filteredFiles.length);
+            status.textContent = `✓ ${filled} originales asignadas | ${dupes} duplicadas omitidas${repeated > 0 ? ` | ${repeated} segmentos rellenados con la última imagen` : ''}`;
+          }
+          const seg = state.segments[fi];
+          if (state.currentTime >= seg.start && state.currentTime < seg.end) {
+            drawFrame(state.currentTime);
+          }
+        };
+        img.src = url;
+      });
+    }
+
+    function extractNumber(filename) {
+      const m = filename.match(/\d+/);
+      return m ? parseInt(m[0], 10) : null;
+    }
+
+// Draw initial black frame
+ctx.fillStyle = '#0a0a0a';
+ctx.fillRect(0,0,1280,720);
+ctx.fillStyle = 'rgba(255,255,255,0.1)';
+ctx.font = '20px Inter, sans-serif';
+ctx.textAlign = 'center';
+ctx.fillText('VideoSync — Sube el audio y pega la transcripción', 640, 360);
+</script>
+</body>
+</html>
