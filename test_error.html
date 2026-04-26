@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Parse app.js</title>
+    <!-- Load Acorn to parse JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/acorn/8.10.0/acorn.min.js"></script>
+</head>
+<body>
+    <h1 id="status">Loading...</h1>
+    <pre id="log" style="font-family: monospace;"></pre>
+    <script>
+        async function run() {
+            try {
+                let res = await fetch('app.js');
+                let code = await res.text();
+                document.getElementById('log').innerText += 'Fetched app.js, length: ' + code.length + '\n';
+                
+                try {
+                    acorn.parse(code, { ecmaVersion: 2022, sourceType: 'script' });
+                    document.getElementById('status').innerText = 'No syntax errors!';
+                    document.getElementById('log').innerText += 'Parsing succeeded.\n';
+                } catch (e) {
+                    document.getElementById('status').innerText = 'Syntax Error Found!';
+                    document.getElementById('log').innerText += e.message + ' at line ' + e.loc.line + ' column ' + e.loc.column + '\n';
+                    
+                    // Show context around the error
+                    let lines = code.split('\n');
+                    let start = Math.max(0, e.loc.line - 5);
+                    let end = Math.min(lines.length, e.loc.line + 5);
+                    let context = lines.slice(start, end).join('\n');
+                    document.getElementById('log').innerText += '\nContext:\n' + context + '\n';
+                }
+            } catch (err) {
+                document.getElementById('status').innerText = 'Fetch failed';
+                document.getElementById('log').innerText += err.message;
+            }
+        }
+        run();
+    </script>
+</body>
+</html>

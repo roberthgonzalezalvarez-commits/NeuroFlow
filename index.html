@@ -98,6 +98,10 @@
             <span class="material-symbols-rounded">person_add</span>
             Amigos
           </button>
+          <button class="nav-tab" data-view="agenda">
+            <span class="material-symbols-rounded">sticky_note_2</span>
+            Agenda
+          </button>
           <button class="nav-tab" data-view="tools">
             <span class="material-symbols-rounded">build</span>
             Herramientas
@@ -371,6 +375,79 @@
             <small>Busca y agrega personas para empezar</small>
           </div>
         </div>
+      </div>
+    </div>
+
+    <!-- ===== VIEW: AGENDA ===== -->
+    <div class="view" id="viewAgenda" style="display:none">
+      <div class="agenda-container">
+        <!-- Header -->
+        <div class="agenda-header">
+          <div class="agenda-title-area">
+            <span class="material-symbols-rounded agenda-title-icon">calendar_month</span>
+            <h2>Mi Agenda</h2>
+          </div>
+          <div class="agenda-nav">
+            <button class="agenda-nav-btn" id="agendaPrev" title="Mes anterior">
+              <span class="material-symbols-rounded">chevron_left</span>
+            </button>
+            <span class="agenda-month-label" id="agendaMonthLabel">Abril 2026</span>
+            <button class="agenda-nav-btn" id="agendaNext" title="Mes siguiente">
+              <span class="material-symbols-rounded">chevron_right</span>
+            </button>
+            <button class="agenda-nav-btn agenda-today-btn" id="agendaToday" title="Ir a hoy">
+              <span class="material-symbols-rounded">today</span>
+              Hoy
+            </button>
+          </div>
+        </div>
+
+        <!-- Day names -->
+        <div class="agenda-weekdays">
+          <div class="agenda-weekday">Lun</div>
+          <div class="agenda-weekday">Mar</div>
+          <div class="agenda-weekday">Mié</div>
+          <div class="agenda-weekday">Jue</div>
+          <div class="agenda-weekday">Vie</div>
+          <div class="agenda-weekday weekend">Sáb</div>
+          <div class="agenda-weekday weekend">Dom</div>
+        </div>
+
+        <!-- Calendar grid -->
+        <div class="agenda-grid" id="agendaGrid"></div>
+      </div>
+    </div>
+
+    <!-- ===== MODAL: Agenda Note ===== -->
+    <div class="modal-overlay" id="agendaNoteModal">
+      <div class="modal">
+        <div class="modal-header">
+          <h2 id="agendaNoteModalTitle">Nueva Nota</h2>
+          <button class="icon-btn" id="closeAgendaNoteModalBtn"><span class="material-symbols-rounded">close</span></button>
+        </div>
+        <form id="agendaNoteForm">
+          <input type="hidden" id="agendaNoteId">
+          <input type="hidden" id="agendaNoteDay">
+          <div class="field">
+            <label>Texto de la nota</label>
+            <textarea id="agendaNoteText" required placeholder="Escribe tu nota aquí..." style="height: 100px; resize: none;"></textarea>
+          </div>
+          <div class="field">
+            <label>Color</label>
+            <div class="agenda-color-picker" id="agendaColorPicker">
+              <button type="button" class="agenda-color-btn active" data-color="yellow" style="--c:#fff9c4;--cb:#f9a825" title="Amarillo"></button>
+              <button type="button" class="agenda-color-btn" data-color="pink" style="--c:#fce4ec;--cb:#e91e63" title="Rosa"></button>
+              <button type="button" class="agenda-color-btn" data-color="green" style="--c:#e8f5e9;--cb:#43a047" title="Verde"></button>
+              <button type="button" class="agenda-color-btn" data-color="blue" style="--c:#e3f2fd;--cb:#1e88e5" title="Azul"></button>
+              <button type="button" class="agenda-color-btn" data-color="orange" style="--c:#fff3e0;--cb:#fb8c00" title="Naranja"></button>
+              <button type="button" class="agenda-color-btn" data-color="purple" style="--c:#f3e5f5;--cb:#8e24aa" title="Lila"></button>
+            </div>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn-danger" id="deleteAgendaNoteBtn" style="display:none">Eliminar</button>
+            <button type="submit" class="btn-primary">Guardar Nota</button>
+          </div>
+        </form>
       </div>
     </div>
 

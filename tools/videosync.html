@@ -430,8 +430,6 @@ canvas#previewCanvas { width:100%; height:100%; display:block; }
     <div class="card">
       <div class="card-title">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        Carga masiva de imágenes
-      </div>
         Carga masiva de media
       </div>
       <div class="upload-zone" id="bulkUploadZone"
@@ -592,12 +590,31 @@ canvas#previewCanvas { width:100%; height:100%; display:block; }
     <div class="modal-title" id="exportTitle">Exportar Video</div>
     <div id="exportOptions">
       <p style="font-size:var(--text-sm);color:var(--color-text-muted);margin-bottom:var(--space-4)">
-        Elige cómo exportar tu video. La exportación local funciona sin API keys.
+        Elige cómo exportar tu video. <b>30 FPS</b> es recomendado para evitar tirones.
       </p>
+      
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-bottom:var(--space-4)">
+        <div>
+          <label>Resolución</label>
+          <select id="localExportRes">
+            <option value="720">HD (720p)</option>
+            <option value="1080" selected>Full HD (1080p)</option>
+            <option value="480">SD (480p)</option>
+          </select>
+        </div>
+        <div>
+          <label>FPS (Cuadros)</label>
+          <select id="localExportFps">
+            <option value="30" selected>30 FPS (Recomendado)</option>
+            <option value="60">60 FPS (Alta Calidad)</option>
+          </select>
+        </div>
+      </div>
+
       <div style="display:flex;flex-direction:column;gap:var(--space-3)">
         <button class="btn btn-primary btn-full" onclick="exportLocal()" style="padding:var(--space-3)">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
-          Exportar local (Canvas Recorder)
+          Exportar local (Navegador)
           <span style="font-size:var(--text-xs);opacity:.7;margin-left:auto">Gratis</span>
         </button>
         <button class="btn btn-secondary btn-full" onclick="exportShotstack()" style="padding:var(--space-3)">
@@ -735,7 +752,7 @@ function parseTranscript() {
     const start = parseTimecode(m[1]);
     const end = parseTimecode(m[2]);
     const text = m[3].trim();
-    if(end > start) parsed.push({ start, end, text, image:null, imageUrl:null, effect:null });
+    if(end > start) parsed.push({ start, end, text, media:null, mediaUrl:null, isVideo:false, effect:null });
   }
 
   if(!parsed.length) {
@@ -798,7 +815,7 @@ function renderSegments() {
     div.innerHTML = `
       <div class="segment-header" onclick="toggleSegment(${i})">
         <div class="segment-thumb" id="seg-thumb-${i}">
-          ${seg.imageUrl ? `<img src="${seg.imageUrl}" alt="img">` : `<svg class="no-img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`}
+          ${seg.mediaUrl ? (seg.isVideo ? `<video src="${seg.mediaUrl}"></video>` : `<img src="${seg.mediaUrl}" alt="img">`) : `<svg class="no-img" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>`}
         </div>
         <div class="segment-info">
           <div class="segment-time">${formatTime(seg.start)} → ${formatTime(seg.end)}</div>
@@ -1124,7 +1141,7 @@ function animLoop() {
 function drawFrameFast(t) {
   const cw = canvas.width, ch = canvas.height;
   const idx = _findSegFast(t);
-  if (idx < 0 || !_lastSeg || !_lastSeg.image) {
+  if (idx < 0 || !_lastSeg || !_lastSeg.media) {
     ctx.fillStyle = '#000';
     ctx.fillRect(0,0,cw,ch);
     ctx.fillStyle = 'rgba(255,255,255,0.2)';
@@ -1146,7 +1163,7 @@ function drawFrame(t) {
   ctx.fillStyle = '#000';
   ctx.fillRect(0,0,cw,ch);
   const seg = state.segments.find(s => t >= s.start && t < s.end);
-  if(!seg || !seg.image) {
+  if(!seg || !seg.media) {
     ctx.fillStyle = 'rgba(255,255,255,0.2)';
     ctx.font = '36px Inter, sans-serif';
     ctx.textAlign = 'center';
@@ -1175,9 +1192,9 @@ function applyKenBurns(seg, progress, zoomFactor) {
     const rz = 0.6 + Math.random() * 0.8;
     const zf = 1 + (zoomFactor - 1) * rz;
     
-    // Video aspect ratio uses videoWidth/videoHeight, images use width/height
-    const mw = media.videoWidth || media.width;
-    const mh = media.videoHeight || media.height;
+    // Video aspect ratio uses videoWidth/videoHeight, images use naturalWidth/naturalHeight or width/height
+    const mw = media.videoWidth || media.naturalWidth || media.width;
+    const mh = media.videoHeight || media.naturalHeight || media.height;
     const bs = Math.max(cw / mw, ch / mh); // Base scale just enough to cover
 
     // Pre-compute start/end states
@@ -1232,6 +1249,43 @@ function applyKenBurns(seg, progress, zoomFactor) {
     if (dy + dh < ch) dy = ch - dh;
   } else {
     dy = (ch - dh) / 2;
+  }
+
+  // Ensure video frame is synced before drawing
+  if (seg.isVideo && media.tagName === 'VIDEO') {
+    // Keep track of the globally active video to pause others
+    if (window._activeVideo && window._activeVideo !== media) {
+      window._activeVideo.pause();
+    }
+    window._activeVideo = media;
+
+    // Only sync if video has enough data
+    if (media.readyState >= 2) {
+      // Clamp expectedTime to video duration so it doesn't constantly seek past the end
+      let expectedTime = progress * (seg.end - seg.start);
+      if (!isNaN(media.duration) && media.duration > 0) {
+         expectedTime = Math.min(expectedTime, media.duration);
+      }
+
+      if (state.isPlaying || state.isExporting) {
+        // Preview / Export mode: play naturally for smoothness
+        if (media.paused && expectedTime < media.duration) {
+          media.currentTime = expectedTime;
+          media.play().catch(()=>{});
+        } else if (!media.paused) {
+          // Sync if drifted too far (>250ms)
+          if (Math.abs(media.currentTime - expectedTime) > 0.25) {
+            media.currentTime = expectedTime;
+          }
+        }
+      } else {
+        // Scrubbing mode: accurate frame-by-frame
+        if (Math.abs(media.currentTime - expectedTime) > 0.04) {
+          media.currentTime = expectedTime;
+        }
+        if (!media.paused) media.pause();
+      }
+    }
   }
 
   ctx.drawImage(media, dx, dy, dw, dh);
@@ -1294,7 +1348,7 @@ function highlightActiveSegment(t) {
 function updateProjectStatus() {
   const badge = document.getElementById('projectStatus');
   const exportBtn = document.getElementById('exportBtn');
-  const withImg = state.segments.filter(s=>s.image).length;
+  const withImg = state.segments.filter(s=>s.media).length;
   const total = state.segments.length;
   if(total === 0) {
     badge.className = 'status-badge pending'; badge.innerHTML = '<span>●</span> Sin segmentos';
@@ -1317,82 +1371,114 @@ function closeExportModal() {
   document.getElementById('progressBar').style.width='0%';
 }
 
-// LOCAL EXPORT via MediaRecorder + Canvas — 60fps HIGH QUALITY
+// LOCAL EXPORT via MediaRecorder + Canvas
 async function exportLocal() {
   if(!state.segments.length) return;
+  
+  const targetFps = parseInt(document.getElementById('localExportFps').value) || 30;
+  const targetRes = document.getElementById('localExportRes').value;
+  const isVertical = document.getElementById('videoFormat').value === '9:16';
+  
   document.getElementById('exportOptions').style.display='none';
   document.getElementById('exportProgress').style.display='block';
-  setProgress(0,'Iniciando grabación en 60fps alta calidad...');
+  setProgress(0,`Iniciando grabación (${targetFps}fps)...`);
 
-  // Switch to HIGH quality for export
+  // Guardar dimensiones originales
+  const oldW = canvas.width;
+  const oldH = canvas.height;
+
+  // Ajustar dimensiones de exportación
+  let exportW = 1920, exportH = 1080;
+  if(targetRes === '720') { exportW = 1280; exportH = 720; }
+  if(targetRes === '480') { exportW = 854; exportH = 480; }
+  if(isVertical) { [exportW, exportH] = [exportH, exportW]; }
+
+  canvas.width = exportW;
+  canvas.height = exportH;
+
+  // Calidad media para exportación (High a veces causa tirones por el costo de interpolación)
   ctx.imageSmoothingEnabled = true;
-  ctx.imageSmoothingQuality = 'high';
+  ctx.imageSmoothingQuality = 'medium'; 
 
   try {
-    const stream = canvas.captureStream(60); // 60fps capture
+    const stream = canvas.captureStream(targetFps);
     if(audio.src) {
       const actx = new AudioContext();
       const dest = actx.createMediaStreamDestination();
       const src = actx.createMediaElementSource(audio);
-      src.connect(dest); src.connect(actx.destination);
+      src.connect(dest); 
+      src.connect(actx.destination);
       stream.addTrack(dest.stream.getAudioTracks()[0]);
     }
-    const recorder = new MediaRecorder(stream, { mimeType: getSupportedMimeType(), videoBitsPerSecond: 8000000 }); // 8Mbps for quality
+
+    // Bitrate dinámico: 8Mbps para 1080p30, 12Mbps para 1080p60, menos para 720p
+    const bitrate = (targetRes === '1080' ? (targetFps === 60 ? 12000000 : 8000000) : 5000000);
+
+    const recorder = new MediaRecorder(stream, { 
+      mimeType: getSupportedMimeType(), 
+      videoBitsPerSecond: bitrate
+    });
+
     const chunks = [];
     recorder.ondataavailable = e => { if(e.data.size>0) chunks.push(e.data); };
     recorder.onstop = () => {
-      setProgress(95,'Creando archivo...');
+      setProgress(95,'Finalizando archivo...');
       const blob = new Blob(chunks, { type: recorder.mimeType });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       const ext = recorder.mimeType.includes('webm') ? 'webm' : 'mp4';
-      a.href = url; a.download = 'videosync-export-60fps.'+ext; a.click();
+      a.href = url; a.download = `videosync-export-${targetRes}p-${targetFps}fps.${ext}`; a.click();
       URL.revokeObjectURL(url);
-      setProgress(100,'¡Descarga iniciada! (60fps)');
-      // Restore preview quality
+      setProgress(100,'¡Exportación completada!');
+      
+      // Restaurar canvas y calidad
+      canvas.width = oldW;
+      canvas.height = oldH;
       ctx.imageSmoothingQuality = 'low';
       setTimeout(closeExportModal, 2000);
     };
 
     recorder.start(100);
-    setProgress(10,'Grabando a 60fps...');
+    state.isExporting = true;
     seekTo(0);
     if(audio.src) { audio.currentTime=0; audio.play(); }
 
     const total = Math.max(state.audioDuration, getMaxSegmentEnd());
     const startTime = performance.now();
-    // Cache zoom for export
     const exportZoom = parseFloat(document.getElementById('zoomIntensity').value) || 1.5;
 
+    _cacheDOM(); // Refresh cached refs
+
     const renderExport = () => {
+      if(!state.isExporting) return;
+      
       const elapsed = (performance.now() - startTime) / 1000;
       const t = elapsed;
       const pct = Math.min(t/total, 1);
-      // Update progress every ~10 frames to not slow down render
-      if(Math.floor(t*10) !== Math.floor((t-0.017)*10)) {
-        setProgress(10 + pct*80, `Grabando 60fps: ${formatTime(t)} / ${formatTime(total)}`);
+      
+      // Throttled UI updates (cada 0.5s)
+      if(Math.floor(t*2) !== Math.floor((t-0.03)*2)) {
+        setProgress(10 + pct*80, `Grabando: ${formatTime(t)} / ${formatTime(total)} (${targetFps} FPS)`);
       }
+      
       state.currentTime = t;
-      // Use high quality draw for export
-      const cw = canvas.width, ch = canvas.height;
-      ctx.fillStyle = '#000';
-      ctx.fillRect(0,0,cw,ch);
-      const seg = state.segments.find(s => t >= s.start && t < s.end);
-      if(seg && seg.media) {
-        const progress = Math.max(0, Math.min(1, (t - seg.start) / (seg.end - seg.start)));
-        if (seg.isVideo) {
-          seg.media.currentTime = t - seg.start;
-        }
-        applyKenBurns(seg, progress, exportZoom);
-        if(state.showSubtitles) drawSubtitle(seg.text);
-      }
+      drawFrameFast(t); // Usar la versión optimizada
+
       if(t < total) requestAnimationFrame(renderExport);
-      else { setTimeout(() => recorder.stop(), 300); }
+      else { 
+        state.isExporting = false;
+        setTimeout(() => {
+          if(audio.src) audio.pause();
+          recorder.stop();
+        }, 500); 
+      }
     };
     requestAnimationFrame(renderExport);
 
   } catch(err) {
     setProgress(0, 'Error: '+err.message);
+    canvas.width = oldW;
+    canvas.height = oldH;
     console.error(err);
   }
 }
