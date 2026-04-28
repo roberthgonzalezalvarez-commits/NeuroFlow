@@ -248,16 +248,28 @@ canvas#previewCanvas { width:100%; height:100%; display:block; }
 .timeline-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:var(--space-3); }
 .timeline-header h3 { font-size:var(--text-sm); font-weight:600; }
 .timeline-controls { display:flex; align-items:center; gap:var(--space-3); }
+.timeline-scroll-container {
+  overflow-x: auto; overflow-y: hidden; width: 100%;
+  border-radius: var(--radius-md); border: 1px solid var(--color-divider);
+  background: var(--color-surface-offset);
+}
+.timeline-scroll-container::-webkit-scrollbar { height: 8px; }
+.timeline-scroll-container::-webkit-scrollbar-thumb { border-radius: 4px; }
 .timeline-track {
-  height:64px; background:var(--color-surface-offset); border-radius:var(--radius-md);
-  position:relative; overflow:hidden; border:1px solid var(--color-divider); cursor:pointer;
+  height: 80px; position: relative; overflow: hidden; cursor: pointer;
+  min-width: 100%; transform-origin: left;
 }
 .timeline-track.scrubbing { cursor:col-resize; }
+.timeline-waveform {
+  position:absolute; inset:0; z-index:1; pointer-events:none;
+  opacity: 0.85;
+}
 .timeline-block {
   position:absolute; top:4px; bottom:4px; border-radius:var(--radius-sm);
-  background:var(--color-primary-highlight); border:1px solid var(--color-primary);
+  background:color-mix(in oklch, var(--color-primary) 12%, transparent); border:1px solid color-mix(in oklch, var(--color-primary) 60%, transparent);
   display:flex; align-items:center; justify-content:center; overflow:hidden;
   cursor:pointer; transition:all var(--transition-interactive); min-width:4px;
+  z-index:2;
 }
 .timeline-block:hover { background:color-mix(in oklch,var(--color-primary) 25%,transparent); }
 .timeline-block.active { background:color-mix(in oklch,var(--color-primary) 30%,transparent); border-width:2px; }
@@ -280,6 +292,36 @@ canvas#previewCanvas { width:100%; height:100%; display:block; }
   background:var(--color-primary); box-shadow:0 0 6px var(--color-primary);
 }
 .time-display { font-size:var(--text-xs); font-variant-numeric:tabular-nums; color:var(--color-text-muted); }
+
+/* ── SPLIT INDICATOR ── */
+.split-line {
+  position:absolute; top:0; bottom:0; width:2px;
+  background:var(--color-error); z-index:15; pointer-events:none;
+  animation: splitFlash 0.5s ease-out;
+}
+@keyframes splitFlash {
+  0% { opacity:1; box-shadow:0 0 12px var(--color-error); }
+  100% { opacity:0; box-shadow:none; }
+}
+
+/* ── SPLIT TOAST ── */
+.split-toast {
+  position:fixed; bottom:28px; left:50%; transform:translateX(-50%) translateY(20px);
+  background:var(--color-surface); border:1px solid var(--color-divider);
+  color:var(--color-text); padding:10px 22px; border-radius:var(--radius-full);
+  font-size:var(--text-sm); font-weight:500; box-shadow:var(--shadow-lg);
+  z-index:300; pointer-events:none;
+  opacity:0; transition:opacity 0.3s, transform 0.3s;
+}
+.split-toast.show {
+  opacity:1; transform:translateX(-50%) translateY(0);
+}
+.split-toast .key-badge {
+  display:inline-flex; align-items:center; justify-content:center;
+  background:var(--color-surface-offset); border:1px solid var(--color-border);
+  border-radius:4px; padding:1px 6px; font-size:11px; font-weight:700;
+  margin:0 3px; min-width:20px; font-family:monospace;
+}
 
 /* ── TRANSPORT ── */
 .transport { display:flex; align-items:center; gap:var(--space-4); justify-content:center; margin-top:var(--space-3); }
@@ -565,8 +607,16 @@ canvas#previewCanvas { width:100%; height:100%; display:block; }
           <span class="time-display" id="timeDisplay">0:00 / 0:00</span>
         </div>
       </div>
-      <div class="timeline-track" id="timelineTrack">
-        <div class="timeline-playhead" id="playhead" style="left:0%"></div>
+      <div class="timeline-scroll-container" id="timelineScrollContainer">
+        <div class="timeline-track" id="timelineTrack">
+          <canvas class="timeline-waveform" id="waveformCanvas"></canvas>
+          <div class="timeline-playhead" id="playhead" style="left:0%"></div>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;gap:var(--space-2);margin-top:6px;font-size:var(--text-xs);color:var(--color-text-faint)">
+        <span>✂ Presiona <kbd style="background:var(--color-surface-offset);border:1px solid var(--color-border);border-radius:3px;padding:0 5px;font-weight:700;font-family:monospace">1</kbd> para dividir</span>
+        <span>·</span>
+        <span>🔍 <kbd style="background:var(--color-surface-offset);border:1px solid var(--color-border);border-radius:3px;padding:0 5px;font-weight:700;font-family:monospace">Ctrl</kbd> + Rueda de ratón para hacer zoom en la línea de tiempo</span>
       </div>
       <div class="transport">
         <button class="transport-btn btn" data-tip="Ir al inicio" onclick="seekTo(0)">
@@ -638,6 +688,7 @@ canvas#previewCanvas { width:100%; height:100%; display:block; }
 // ─── STATE ───────────────────────────────────────────────────
 const state = {
   segments: [],
+  history: [], // Added for undo functionality
   audioDuration: 0,
   currentTime: 0,
   isPlaying: false,
@@ -652,6 +703,26 @@ const state = {
 const canvas = document.getElementById('previewCanvas');
 const ctx = canvas.getContext('2d');
 const audio = document.getElementById('audioPlayer');
+
+// ─── UNDO HISTORY ────────────────────────────────────────────
+function saveHistoryState() {
+  // Deep clone primitive properties of segments
+  const snapshot = state.segments.map(seg => ({ ...seg, kbParams: undefined }));
+  state.history.push(snapshot);
+  if (state.history.length > 50) state.history.shift(); // Keep last 50 actions
+}
+
+function undoHistory() {
+  if (state.history.length === 0) {
+    if (typeof showSplitToast === 'function') showSplitToast('⚠ No hay más acciones para deshacer', true);
+    return;
+  }
+  state.segments = state.history.pop();
+  renderSegments();
+  renderTimeline();
+  updateProjectStatus();
+  if (typeof showSplitToast === 'function') showSplitToast('↩ Deshacer completado');
+}
 
 // ─── THEME TOGGLE ────────────────────────────────────────────
 (function(){
@@ -735,7 +806,92 @@ function loadAudio(input) {
       <div style="font-size:var(--text-xs)">${formatTime(audio.duration)} · Cargado</div>`;
     updateTimeDisplay();
   };
+  // Generate waveform from audio file
+  generateWaveform(file);
 }
+
+// ─── WAVEFORM GENERATION ─────────────────────────────────────
+let _waveformData = null;
+
+async function generateWaveform(file) {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
+    audioCtx.close();
+
+    // Get channel data (mono mix)
+    const rawData = audioBuffer.getChannelData(0);
+    const samples = 800; // number of bars
+    const blockSize = Math.floor(rawData.length / samples);
+    const filteredData = new Float32Array(samples);
+
+    for (let i = 0; i < samples; i++) {
+      let sum = 0;
+      const start = i * blockSize;
+      for (let j = 0; j < blockSize; j++) {
+        sum += Math.abs(rawData[start + j]);
+      }
+      filteredData[i] = sum / blockSize;
+    }
+
+    // Normalize
+    const maxVal = Math.max(...filteredData) || 1;
+    for (let i = 0; i < filteredData.length; i++) {
+      filteredData[i] = filteredData[i] / maxVal;
+    }
+
+    _waveformData = filteredData;
+    drawWaveform();
+  } catch (err) {
+    console.warn('Could not generate waveform:', err);
+  }
+}
+
+function drawWaveform() {
+  if (!_waveformData) return;
+  const wc = document.getElementById('waveformCanvas');
+  const track = document.getElementById('timelineTrack');
+  const rect = track.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  wc.width = rect.width * dpr;
+  wc.height = rect.height * dpr;
+  wc.style.width = rect.width + 'px';
+  wc.style.height = rect.height + 'px';
+
+  const wctx = wc.getContext('2d');
+  wctx.scale(dpr, dpr);
+  wctx.clearRect(0, 0, rect.width, rect.height);
+
+  const barCount = _waveformData.length;
+  const barWidth = rect.width / barCount;
+  const midY = rect.height / 2;
+  const maxAmp = rect.height * 0.42;
+
+  // Gradient for waveform bars
+  const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+  const grad = wctx.createLinearGradient(0, 0, 0, rect.height);
+  if (isDark) {
+    grad.addColorStop(0, 'rgba(66, 133, 244, 0.7)');
+    grad.addColorStop(0.5, 'rgba(66, 133, 244, 0.35)');
+    grad.addColorStop(1, 'rgba(66, 133, 244, 0.7)');
+  } else {
+    grad.addColorStop(0, 'rgba(26, 115, 232, 0.55)');
+    grad.addColorStop(0.5, 'rgba(26, 115, 232, 0.2)');
+    grad.addColorStop(1, 'rgba(26, 115, 232, 0.55)');
+  }
+  wctx.fillStyle = grad;
+
+  for (let i = 0; i < barCount; i++) {
+    const amp = _waveformData[i] * maxAmp;
+    const x = i * barWidth;
+    const bw = Math.max(barWidth - 0.5, 0.5);
+    wctx.fillRect(x, midY - amp, bw, amp * 2);
+  }
+}
+
+// Redraw waveform on resize
+window.addEventListener('resize', () => { if (_waveformData) drawWaveform(); });
 
 // ─── TRANSCRIPT PARSING ──────────────────────────────────────
 function parseTranscript() {
@@ -760,6 +916,7 @@ function parseTranscript() {
     return;
   }
 
+  saveHistoryState();
   state.segments = parsed;
   assignEffects();
   renderSegments();
@@ -798,6 +955,7 @@ function assignEffects() {
 
 function reassignEffects() {
   if(!state.segments.length) return;
+  saveHistoryState();
   assignEffects();
   renderSegments();
 }
@@ -862,6 +1020,7 @@ function toggleSegment(i) {
 }
 
 function removeSegment(i) {
+  saveHistoryState();
   state.segments.splice(i,1);
   renderSegments();
   renderTimeline();
@@ -878,6 +1037,7 @@ function loadImage(i, input) {
   const isVideo = file.type.startsWith('video/');
   
   const finishLoading = (media) => {
+    saveHistoryState();
     state.segments[i].media = media;
     state.segments[i].mediaUrl = url;
     state.segments[i].isVideo = isVideo;
@@ -905,13 +1065,19 @@ function loadImage(i, input) {
     vid.src = url;
     vid.load();
   } else {
-    const img = new Image();
-    img.onload = () => finishLoading(img);
-    img.src = url;
+    // Optimización Anti-Lag: Convertir directo a textura GPU de baja latencia limitando a 2560px
+    createImageBitmap(file, { resizeWidth: 2560, resizeQuality: 'high' })
+      .then(bitmap => finishLoading(bitmap))
+      .catch(err => {
+        const img = new Image();
+        img.onload = () => finishLoading(img);
+        img.src = url;
+      });
   }
 }
 
 function changeEffect(i, val) {
+  saveHistoryState();
   state.segments[i].effect = val;
   delete state.segments[i].kbParams; // Force new random parameters
   renderSegments();
@@ -1140,10 +1306,12 @@ function animLoop() {
 // ─── KEN BURNS DRAW (OPTIMIZED) ─────────────────────────────
 function drawFrameFast(t) {
   const cw = canvas.width, ch = canvas.height;
+  
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0,0,cw,ch);
+
   const idx = _findSegFast(t);
   if (idx < 0 || !_lastSeg || !_lastSeg.media) {
-    ctx.fillStyle = '#000';
-    ctx.fillRect(0,0,cw,ch);
     ctx.fillStyle = 'rgba(255,255,255,0.2)';
     ctx.font = '36px Inter, sans-serif';
     ctx.textAlign = 'center';
@@ -1623,6 +1791,7 @@ function formatTime(s) {
         return;
       }
 
+      saveHistoryState();
       let loaded = 0;
       const totalToAssign = Math.min(filteredFiles.length, state.segments.length);
 
@@ -1637,7 +1806,14 @@ function formatTime(s) {
         if (loaded === totalToAssign) {
           if (filteredFiles.length < state.segments.length) {
             for (let s = filteredFiles.length; s < state.segments.length; s++) {
-              state.segments[s].media = media;
+              if (isVideo) {
+                const vid = document.createElement('video');
+                vid.muted = true; vid.preload = 'auto'; vid.src = url; vid.load();
+                state.segments[s].media = vid;
+              } else {
+                // Reutilizar el ImageBitmap en memoria para todos los segmentos extra
+                state.segments[s].media = media;
+              }
               state.segments[s].mediaUrl = url;
               state.segments[s].isVideo = isVideo;
             }
@@ -1673,9 +1849,13 @@ function formatTime(s) {
           vid.src = url;
           vid.load();
         } else {
-          const img = new Image();
-          img.onload = () => finishBulkLoad(img, isVideo, url, fi);
-          img.src = url;
+          createImageBitmap(file, { resizeWidth: 2560, resizeQuality: 'high' })
+            .then(bitmap => finishBulkLoad(bitmap, isVideo, url, fi))
+            .catch(err => {
+              const img = new Image();
+              img.onload = () => finishBulkLoad(img, isVideo, url, fi);
+              img.src = url;
+            });
         }
       });
     }
@@ -1684,6 +1864,154 @@ function formatTime(s) {
       const m = filename.match(/\d+/);
       return m ? parseInt(m[0], 10) : null;
     }
+
+// ─── SPLIT SEGMENT (key "1") ─────────────────────────────────
+function splitSegmentAtPlayhead() {
+  const t = state.currentTime;
+  const idx = state.segments.findIndex(s => t > s.start + 0.1 && t < s.end - 0.1);
+  if (idx < 0) {
+    showSplitToast('⚠ No hay segmento para dividir aquí', true);
+    return;
+  }
+
+  const seg = state.segments[idx];
+  const splitTime = t;
+
+  // Create two new segments from the original
+  const cloneMedia = (mediaUrl, isVideo, originalMedia) => {
+    if (!mediaUrl) return null;
+    if (isVideo) {
+      const vid = document.createElement('video');
+      vid.muted = true; vid.preload = 'auto'; vid.src = mediaUrl; vid.load();
+      return vid;
+    } else {
+      // Las imágenes ya están en formato ImageBitmap de baja latencia, se pueden reutilizar 100%
+      return originalMedia;
+    }
+  };
+
+  const seg1 = {
+    start: seg.start,
+    end: splitTime,
+    text: seg.text,
+    media: seg.media,
+    mediaUrl: seg.mediaUrl,
+    isVideo: seg.isVideo,
+    effect: seg.effect,
+    kbParams: undefined // will regenerate
+  };
+  const seg2 = {
+    start: splitTime,
+    end: seg.end,
+    text: seg.text,
+    media: cloneMedia(seg.mediaUrl, seg.isVideo, seg.media),
+    mediaUrl: seg.mediaUrl,
+    isVideo: seg.isVideo,
+    effect: seg.effect,
+    kbParams: undefined
+  };
+
+  // Replace original with the two halves
+  saveHistoryState();
+  state.segments.splice(idx, 1, seg1, seg2);
+
+  // Visual flash on timeline
+  const track = document.getElementById('timelineTrack');
+  const total = Math.max(state.audioDuration, getMaxSegmentEnd());
+  const pct = (splitTime / total * 100);
+  const line = document.createElement('div');
+  line.className = 'split-line';
+  line.style.left = pct + '%';
+  track.appendChild(line);
+  setTimeout(() => line.remove(), 600);
+
+  renderSegments();
+  renderTimeline();
+  updateProjectStatus();
+
+  showSplitToast(`✂ Segmento ${idx + 1} dividido en ${formatTime(splitTime)}`);
+}
+
+function showSplitToast(msg, isWarning) {
+  let toast = document.querySelector('.split-toast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.className = 'split-toast';
+    document.body.appendChild(toast);
+  }
+  toast.innerHTML = msg;
+  if (isWarning) toast.style.borderColor = 'var(--color-warning)';
+  else toast.style.borderColor = 'var(--color-divider)';
+  toast.classList.add('show');
+  clearTimeout(toast._hideTimer);
+  toast._hideTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+}
+
+// Listen for "1" key to split and Ctrl+Z to undo
+document.addEventListener('keydown', (e) => {
+  // Don't trigger when typing in inputs/textareas
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT') return;
+  
+  if (e.ctrlKey && e.key.toLowerCase() === 'z') {
+    e.preventDefault();
+    undoHistory();
+    return;
+  }
+  
+  if (e.key === '1') {
+    e.preventDefault();
+    splitSegmentAtPlayhead();
+  }
+  
+  if (e.code === 'Space') {
+    e.preventDefault();
+    togglePlay();
+  }
+});
+
+// ─── TIMELINE ZOOM (Ctrl + Wheel) ───────────────────────────
+let _zoomLevel = 1;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 30;
+
+document.getElementById('timelineScrollContainer').addEventListener('wheel', (e) => {
+  if (e.ctrlKey || e.metaKey) {
+    e.preventDefault();
+    
+    const zoomDelta = e.deltaY > 0 ? -0.25 : 0.25;
+    const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, _zoomLevel + zoomDelta));
+    if (newZoom === _zoomLevel) return;
+    
+    const track = document.getElementById('timelineTrack');
+    const container = document.getElementById('timelineScrollContainer');
+    
+    // Calculate cursor position to zoom towards it
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const scrollX = container.scrollLeft;
+    
+    const trackPos = (scrollX + mouseX) / track.offsetWidth;
+    
+    _zoomLevel = newZoom;
+    track.style.width = (_zoomLevel * 100) + '%';
+    
+    // Restore scroll position to keep cursor fixed
+    const newTrackWidth = container.clientWidth * _zoomLevel;
+    container.scrollLeft = (trackPos * newTrackWidth) - mouseX;
+    
+    // Redraw waveform after a short delay
+    if (typeof _waveformData !== 'undefined' && _waveformData) {
+      clearTimeout(window._zoomWaveformTimer);
+      window._zoomWaveformTimer = setTimeout(drawWaveform, 150);
+    }
+  }
+}, { passive: false });
+
+// Redraw waveform on theme change
+const _themeBtn = document.querySelector('[data-theme-toggle]');
+if (_themeBtn) {
+  _themeBtn.addEventListener('click', () => setTimeout(drawWaveform, 50));
+}
 
 // Draw initial black frame
 ctx.fillStyle = '#0a0a0a';
